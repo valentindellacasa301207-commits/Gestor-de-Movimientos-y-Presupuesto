@@ -1,9 +1,18 @@
 const CLAVE_USUARIOS = "gestor_usuarios_v1";
 const CLAVE_SESION = "gestor_sesion_activa_v1";
+const CLAVE_CACHE_COTIZACIONES = "gestor_cotizaciones_cache_v1";
 
 const EMAILJS_PUBLIC_KEY = "qMZwedfhyH5y_dCX0";
 const EMAILJS_SERVICE_ID = "service_7bdvpcu";
 const EMAILJS_TEMPLATE_ID = "template_6b8eib7";
+
+// Tasas base respecto a ARS (cuánto vale 1 unidad de la moneda en ARS, o factor desde ARS)
+// Usamos tasas de respaldo por si falla la API externa y actualizamos vía Frankfurter / open.er-api
+const TASAS_RESPALDO = {
+  ARS: 1,
+  USD: 1000,
+  EUR: 1080
+};
 
 const CONFIG_MONEDAS = {
   ARS: { locale: "es-AR", currency: "ARS" },
@@ -18,6 +27,8 @@ let presupuestoMensual = 0;
 let presupuestosCategoria = {};
 let notasUsuario = "";
 let monedaActual = "ARS";
+let tasasPorARS = { ...TASAS_RESPALDO }; // cuántas unidades de la moneda equivalen a 1 ARS
+let etiquetaCotizacion = "Cotización de respaldo";
 let idEditando = null;
 let ordenCampo = "fecha";
 let ordenAsc = false;
@@ -36,7 +47,9 @@ const btnAuthSubmit = document.getElementById("btn-auth-submit");
 const btnCambiarModo = document.getElementById("btn-cambiar-modo");
 const mensajeAuth = document.getElementById("mensaje-auth");
 const spanUsuarioActual = document.getElementById("usuario-actual");
+const infoCotizacion = document.getElementById("info-cotizacion");
 const selectorMoneda = document.getElementById("selector-moneda");
+const btnActualizarCotizacion = document.getElementById("btn-actualizar-cotizacion");
 const btnCerrarSesion = document.getElementById("btn-cerrar-sesion");
 
 const camposRegistro = document.getElementById("campos-registro");
@@ -108,6 +121,8 @@ const inputImportarCsv = document.getElementById("input-importar-csv");
 const btnExportarJson = document.getElementById("btn-exportar-json");
 const btnImportarJson = document.getElementById("btn-importar-json");
 const inputImportarJson = document.getElementById("input-importar-json");
+const btnExportarXlsx = document.getElementById("btn-exportar-xlsx");
+const btnExportarPdf = document.getElementById("btn-exportar-pdf");
 const btnLimpiar = document.getElementById("btn-limpiar");
 
 document.querySelectorAll(".btn-ojo").forEach((btn) => {
@@ -116,6 +131,81 @@ document.querySelectorAll(".btn-ojo").forEach((btn) => {
     if (!campo) return;
     campo.type = campo.type === "password" ? "text" : "password";
   });
+});
+
+function cargarCacheCotizaciones() {
+  try {
+    const cache = JSON.parse(localStorage.getItem(CLAVE_CACHE_COTIZACIONES));
+    if (!cache || !cache.tasasPorARS || !cache.timestamp) return false;
+    const seisHoras = 6 * 60 * 60 * 1000;
+    if (Date.now() - cache.timestamp > seisHoras) return false;
+    tasasPorARS = { ARS: 1, ...cache.tasasPorARS };
+    etiquetaCotizacion = `Actualizada (${new Date(cache.timestamp).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit"
+    })})`;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function obtenerCotizacionesExternas(forzar = false) {
+  if (!forzar && cargarCacheCotizaciones()) {
+    renderizarBarraCotizacion();
+    return;
+  }
+
+  infoCotizacion.textContent = "Cotización: consultando API...";
+  try {
+    const res = await fetch("https://open.er-api.com/v6/latest/ARS");
+    if (!res.ok) throw new Error("Error de red");
+    const data = await res.json();
+    if (data && data.result === "success" && data.rates && data.rates.USD && data.rates.EUR) {
+      tasasPorARS = {
+        ARS: 1,
+        USD: Number(data.rates.USD),
+        EUR: Number(data.rates.EUR)
+      };
+      const ahora = Date.now();
+      localStorage.setItem(
+        CLAVE_CACHE_COTIZACIONES,
+        JSON.stringify({ timestamp: ahora, tasasPorARS })
+      );
+      etiquetaCotizacion = `API en línea (${new Date(ahora).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit"
+      })})`;
+      renderizarBarraCotizacion();
+      if (usuarioActivo) renderizar();
+      return;
+    }
+    throw new Error("Respuesta inválida");
+  } catch {
+    // Respaldo si no hay conexión o la API no responde
+    tasasPorARS = {
+      ARS: 1,
+      USD: 1 / TASAS_RESPALDO.USD,
+      EUR: 1 / TASAS_RESPALDO.EUR
+    };
+    etiquetaCotizacion = "Cotización de referencia local";
+    renderizarBarraCotizacion();
+  }
+}
+
+function convertirDesdeARS(montoARS) {
+  const factor = tasasPorARS[monedaActual] || 1;
+  return Number(montoARS) * factor;
+}
+
+function renderizarBarraCotizacion() {
+  const usdEnArs = tasasPorARS.USD ? (1 / tasasPorARS.USD).toFixed(2) : TASAS_RESPALDO.USD;
+  const eurEnArs = tasasPorARS.EUR ? (1 / tasasPorARS.EUR).toFixed(2) : TASAS_RESPALDO.EUR;
+  infoCotizacion.textContent = `1 USD ≈ ${usdEnArs} ARS · 1 EUR ≈ ${eurEnArs} ARS (${etiquetaCotizacion})`;
+}
+
+btnActualizarCotizacion.addEventListener("click", () => {
+  obtenerCotizacionesExternas(true);
 });
 
 function fechaHoyISO() {
@@ -264,6 +354,7 @@ function actualizarVistaSesion() {
     spanUsuarioActual.textContent = usuarioActivo;
     inputFecha.value = fechaHoyISO();
     cargarDatosUsuario();
+    renderizarBarraCotizacion();
     renderizar();
   } else {
     cancelarEdicion();
@@ -653,13 +744,14 @@ notasTextarea.addEventListener("input", () => {
   guardarNotas();
 });
 
-function formatearMonto(valor) {
+function formatearMonto(valorARS) {
   const cfg = CONFIG_MONEDAS[monedaActual] || CONFIG_MONEDAS.ARS;
+  const convertido = convertirDesdeARS(valorARS);
   return new Intl.NumberFormat(cfg.locale, {
     style: "currency",
     currency: cfg.currency,
-    maximumFractionDigits: 2
-  }).format(valor);
+    maximumFractionDigits: monedaActual === "ARS" ? 2 : 2
+  }).format(convertido);
 }
 
 function renderizarPresupuestosCategoria() {
@@ -842,7 +934,7 @@ function renderizarGraficoGastos(visibles) {
 
   entradas.forEach(([cat, valor], idx) => {
     const y = inicioY + idx * (alturaBarra + espacio);
-    const anchoBarra = maxValor > 0 ? Math.max(8, ((ancho - 210) * valor) / maxValor) : 8;
+    const anchoBarra = maxValor > 0 ? Math.max(8, ((ancho - 220) * valor) / maxValor) : 8;
 
     ctx.fillStyle = "#2b211b";
     ctx.font = "12px system-ui, sans-serif";
@@ -884,7 +976,6 @@ function renderizarGraficoEvolucion(visibles) {
     ...mesesOrdenados.flatMap((m) => [porMes[m].ingreso, porMes[m].gasto])
   );
 
-  // Leyenda
   ctx.font = "12px system-ui, sans-serif";
   ctx.fillStyle = "#1f7a4c";
   ctx.fillRect(14, 10, 12, 12);
@@ -950,31 +1041,13 @@ document.querySelectorAll(".btn-orden").forEach((btn) => {
   });
 });
 
-function renderizar() {
-  actualizarFiltroCategorias();
-  renderizarPresupuestoYComparativa();
-
+function obtenerMovimientosFiltradosOrdenados() {
   const tipoSel = filtroTipo.value;
   const catSel = filtroCategoria.value;
   const metodoSel = filtroMetodo.value;
   const consulta = buscarTexto.value.trim().toLowerCase();
   const desde = fechaDesde.value;
   const hasta = fechaHasta.value;
-
-  let ingresos = 0;
-  let gastos = 0;
-
-  for (const mov of movimientos) {
-    if (mov.tipo === "ingreso") {
-      ingresos += mov.monto;
-    } else {
-      gastos += mov.monto;
-    }
-  }
-
-  document.getElementById("total-ingresos").textContent = formatearMonto(ingresos);
-  document.getElementById("total-gastos").textContent = formatearMonto(gastos);
-  document.getElementById("saldo-neto").textContent = formatearMonto(ingresos - gastos);
 
   const filtrados = movimientos.filter((m) => {
     const coincideTipo = tipoSel === "todos" || m.tipo === tipoSel;
@@ -997,7 +1070,29 @@ function renderizar() {
     );
   });
 
-  const visibles = ordenarMovimientos(filtrados);
+  return ordenarMovimientos(filtrados);
+}
+
+function renderizar() {
+  actualizarFiltroCategorias();
+  renderizarPresupuestoYComparativa();
+
+  let ingresos = 0;
+  let gastos = 0;
+
+  for (const mov of movimientos) {
+    if (mov.tipo === "ingreso") {
+      ingresos += mov.monto;
+    } else {
+      gastos += mov.monto;
+    }
+  }
+
+  document.getElementById("total-ingresos").textContent = formatearMonto(ingresos);
+  document.getElementById("total-gastos").textContent = formatearMonto(gastos);
+  document.getElementById("saldo-neto").textContent = formatearMonto(ingresos - gastos);
+
+  const visibles = obtenerMovimientosFiltradosOrdenados();
 
   renderizarResumenCategorias(visibles);
   renderizarGraficoGastos(visibles);
@@ -1154,7 +1249,7 @@ function descargarArchivo(contenido, nombreArchivo, tipoMime) {
 }
 
 btnExportar.addEventListener("click", () => {
-  const encabezados = ["ID", "Fecha", "Tipo", "Categoria", "MetodoPago", "Descripcion", "Monto"];
+  const encabezados = ["ID", "Fecha", "Tipo", "Categoria", "MetodoPago", "Descripcion", "MontoARS"];
   const filas = movimientos.map((m) => [
     m.id,
     `"${String(m.fecha).replace(/"/g, '""')}"`,
@@ -1344,6 +1439,88 @@ inputImportarJson.addEventListener("change", (e) => {
   inputImportarJson.value = "";
 });
 
+btnExportarXlsx.addEventListener("click", () => {
+  if (!window.XLSX) {
+    alert("No se pudo cargar la librería de Excel (SheetJS). Revisa tu conexión.");
+    return;
+  }
+
+  const filas = movimientos.map((m) => ({
+    Fecha: m.fecha,
+    Tipo: m.tipo === "ingreso" ? "Ingreso" : "Gasto",
+    Categoria: m.categoria,
+    MetodoPago: m.metodoPago,
+    Descripcion: m.descripcion,
+    MontoARS: m.monto,
+    MontoConvertido: Number(convertirDesdeARS(m.monto).toFixed(2)),
+    MonedaVista: monedaActual
+  }));
+
+  const hoja = XLSX.utils.json_to_sheet(filas);
+  const libro = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(libro, hoja, "Movimientos");
+  XLSX.writeFile(libro, `movimientos_${usuarioActivo}_${fechaHoyISO()}.xlsx`);
+});
+
+btnExportarPdf.addEventListener("click", () => {
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    alert("No se pudo cargar la librería de PDF (jsPDF). Revisa tu conexión.");
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const margenX = 40;
+  let y = 50;
+
+  let ingresos = 0;
+  let gastos = 0;
+  for (const m of movimientos) {
+    if (m.tipo === "ingreso") ingresos += m.monto;
+    else gastos += m.monto;
+  }
+
+  doc.setFontSize(16);
+  doc.text(`Reporte de Movimientos - ${usuarioActivo}`, margenX, y);
+  y += 22;
+
+  doc.setFontSize(10);
+  doc.text(`Fecha de emisión: ${fechaHoyISO()} · Moneda: ${monedaActual}`, margenX, y);
+  y += 18;
+  doc.text(
+    `Ingresos: ${formatearMonto(ingresos)} | Gastos: ${formatearMonto(gastos)} | Saldo: ${formatearMonto(
+      ingresos - gastos
+    )}`,
+    margenX,
+    y
+  );
+  y += 26;
+
+  doc.setFontSize(11);
+  doc.text("Movimientos (según filtros activos):", margenX, y);
+  y += 16;
+
+  doc.setFontSize(9);
+  const visibles = obtenerMovimientosFiltradosOrdenados().slice(0, 45);
+  if (visibles.length === 0) {
+    doc.text("Sin movimientos para mostrar.", margenX, y);
+  } else {
+    for (const m of visibles) {
+      if (y > 780) {
+        doc.addPage();
+        y = 50;
+      }
+      const linea = `${m.fecha} | ${m.tipo.toUpperCase()} | ${m.categoria} | ${m.metodoPago} | ${
+        m.descripcion
+      } | ${formatearMonto(m.monto)}`;
+      doc.text(linea.slice(0, 105), margenX, y);
+      y += 14;
+    }
+  }
+
+  doc.save(`reporte_${usuarioActivo}_${fechaHoyISO()}.pdf`);
+});
+
 btnLimpiar.addEventListener("click", () => {
   if (movimientos.length === 0) return;
   if (!confirm("¿Seguro que quieres borrar todos los movimientos de este usuario?")) return;
@@ -1354,3 +1531,4 @@ btnLimpiar.addEventListener("click", () => {
 });
 
 actualizarVistaSesion();
+obtenerCotizacionesExternas(false);
