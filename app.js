@@ -4,7 +4,10 @@ const CLAVE_SESION = "gestor_sesion_activa_v1";
 let modoRegistro = false;
 let usuarioActivo = localStorage.getItem(CLAVE_SESION) || null;
 let movimientos = [];
+let presupuestoMensual = 0;
 let idEditando = null;
+let ordenCampo = "fecha";
+let ordenAsc = false;
 
 const vistaLogin = document.getElementById("vista-login");
 const vistaApp = document.getElementById("vista-app");
@@ -16,18 +19,44 @@ const mensajeAuth = document.getElementById("mensaje-auth");
 const spanUsuarioActual = document.getElementById("usuario-actual");
 const btnCerrarSesion = document.getElementById("btn-cerrar-sesion");
 
+const btnCambiarClave = document.getElementById("btn-cambiar-clave");
+const panelCambiarClave = document.getElementById("panel-cambiar-clave");
+const formCambiarClave = document.getElementById("form-cambiar-clave");
+const btnCancelarClave = document.getElementById("btn-cancelar-clave");
+const mensajeClave = document.getElementById("mensaje-clave");
+const btnEliminarCuenta = document.getElementById("btn-eliminar-cuenta");
+
+const formPresupuesto = document.getElementById("form-presupuesto");
+const inputPresupuestoMes = document.getElementById("input-presupuesto-mes");
+const textoPresupuesto = document.getElementById("texto-presupuesto");
+const barraProgreso = document.getElementById("barra-progreso");
+const alertaPresupuesto = document.getElementById("alerta-presupuesto");
+const comparativaMensual = document.getElementById("comparativa-mensual");
+
 const form = document.getElementById("form-movimiento");
 const inputFecha = document.getElementById("fecha");
+const modoRepeticion = document.getElementById("modo-repeticion");
+const cantidadRepeticiones = document.getElementById("cantidad-repeticiones");
 const btnGuardarMov = document.getElementById("btn-guardar-mov");
 const btnCancelarEdicion = document.getElementById("btn-cancelar-edicion");
+
 const lista = document.getElementById("lista-movimientos");
 const filtroTipo = document.getElementById("filtro-tipo");
 const filtroCategoria = document.getElementById("filtro-categoria");
 const buscarTexto = document.getElementById("buscar-texto");
+const fechaDesde = document.getElementById("fecha-desde");
+const fechaHasta = document.getElementById("fecha-hasta");
+const btnLimpiarFiltros = document.getElementById("btn-limpiar-filtros");
+
 const resumenCategorias = document.getElementById("resumen-categorias");
+const graficoCanvas = document.getElementById("grafico-gastos");
+
 const btnExportar = document.getElementById("btn-exportar");
 const btnImportar = document.getElementById("btn-importar");
 const inputImportarCsv = document.getElementById("input-importar-csv");
+const btnExportarJson = document.getElementById("btn-exportar-json");
+const btnImportarJson = document.getElementById("btn-importar-json");
+const inputImportarJson = document.getElementById("input-importar-json");
 const btnLimpiar = document.getElementById("btn-limpiar");
 
 function fechaHoyISO() {
@@ -36,6 +65,18 @@ function fechaHoyISO() {
   const mes = String(hoy.getMonth() + 1).padStart(2, "0");
   const dia = String(hoy.getDate()).padStart(2, "0");
   return `${anio}-${mes}-${dia}`;
+}
+
+function sumarMesesAFecha(fechaISO, mesesASumar) {
+  const partes = fechaISO.split("-").map(Number);
+  if (partes.length !== 3 || partes.some(isNaN)) return fechaHoyISO();
+  const [anio, mes, dia] = partes;
+  const indiceMesObjetivo = mes - 1 + mesesASumar;
+  const anioObjetivo = anio + Math.floor(indiceMesObjetivo / 12);
+  const mesObjetivo = ((indiceMesObjetivo % 12) + 12) % 12;
+  const ultimoDiaMes = new Date(anioObjetivo, mesObjetivo + 1, 0).getDate();
+  const diaAjustado = Math.min(dia, ultimoDiaMes);
+  return `${anioObjetivo}-${String(mesObjetivo + 1).padStart(2, "0")}-${String(diaAjustado).padStart(2, "0")}`;
 }
 
 function escaparHTML(texto) {
@@ -66,7 +107,11 @@ function claveMovimientosUsuario() {
   return `movimientos_${usuarioActivo}`;
 }
 
-function cargarMovimientos() {
+function clavePresupuestoUsuario() {
+  return `presupuesto_${usuarioActivo}`;
+}
+
+function cargarDatosUsuario() {
   const crudos = JSON.parse(localStorage.getItem(claveMovimientosUsuario())) || [];
   movimientos = crudos.map((m) => ({
     id: m.id || Date.now() + Math.random(),
@@ -76,27 +121,38 @@ function cargarMovimientos() {
     descripcion: m.descripcion || "",
     monto: Number(m.monto) || 0
   }));
+
+  presupuestoMensual = Number(localStorage.getItem(clavePresupuestoUsuario())) || 0;
+  inputPresupuestoMes.value = presupuestoMensual > 0 ? presupuestoMensual : "";
 }
 
 function guardarMovimientos() {
   localStorage.setItem(claveMovimientosUsuario(), JSON.stringify(movimientos));
 }
 
+function guardarPresupuesto() {
+  localStorage.setItem(clavePresupuestoUsuario(), String(presupuestoMensual));
+}
+
 function cancelarEdicion() {
   idEditando = null;
   btnGuardarMov.textContent = "Agregar";
   btnCancelarEdicion.classList.add("oculto");
+  modoRepeticion.disabled = false;
+  cantidadRepeticiones.disabled = false;
   form.reset();
   inputFecha.value = fechaHoyISO();
+  cantidadRepeticiones.classList.add("oculto");
 }
 
 function actualizarVistaSesion() {
   if (usuarioActivo) {
     vistaLogin.classList.add("oculto");
     vistaApp.classList.remove("oculto");
+    panelCambiarClave.classList.add("oculto");
     spanUsuarioActual.textContent = usuarioActivo;
     inputFecha.value = fechaHoyISO();
-    cargarMovimientos();
+    cargarDatosUsuario();
     renderizar();
   } else {
     cancelarEdicion();
@@ -160,12 +216,151 @@ btnCerrarSesion.addEventListener("click", () => {
   actualizarVistaSesion();
 });
 
+btnCambiarClave.addEventListener("click", () => {
+  mensajeClave.textContent = "";
+  formCambiarClave.reset();
+  panelCambiarClave.classList.toggle("oculto");
+});
+
+btnCancelarClave.addEventListener("click", () => {
+  panelCambiarClave.classList.add("oculto");
+  mensajeClave.textContent = "";
+});
+
+formCambiarClave.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const actual = document.getElementById("clave-actual").value;
+  const nueva = document.getElementById("clave-nueva").value;
+
+  if (nueva.length < 4) {
+    mensajeClave.textContent = "La nueva contraseña debe tener al menos 4 caracteres.";
+    return;
+  }
+
+  const usuarios = obtenerUsuarios();
+  const hashActual = await hashClave(actual);
+
+  if (usuarios[usuarioActivo] !== hashActual) {
+    mensajeClave.textContent = "La contraseña actual es incorrecta.";
+    return;
+  }
+
+  usuarios[usuarioActivo] = await hashClave(nueva);
+  guardarUsuarios(usuarios);
+  panelCambiarClave.classList.add("oculto");
+  formCambiarClave.reset();
+  alert("Contraseña actualizada correctamente.");
+});
+
+btnEliminarCuenta.addEventListener("click", () => {
+  if (
+    !confirm(
+      `¿Seguro que quieres eliminar la cuenta "${usuarioActivo}" y todos sus movimientos y presupuestos?`
+    )
+  ) {
+    return;
+  }
+
+  const usuarios = obtenerUsuarios();
+  delete usuarios[usuarioActivo];
+  guardarUsuarios(usuarios);
+
+  localStorage.removeItem(claveMovimientosUsuario());
+  localStorage.removeItem(clavePresupuestoUsuario());
+  localStorage.removeItem(CLAVE_SESION);
+
+  usuarioActivo = null;
+  actualizarVistaSesion();
+});
+
+modoRepeticion.addEventListener("change", () => {
+  if (modoRepeticion.value === "unico") {
+    cantidadRepeticiones.classList.add("oculto");
+  } else {
+    cantidadRepeticiones.classList.remove("oculto");
+  }
+});
+
+formPresupuesto.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const valor = parseFloat(inputPresupuestoMes.value);
+  presupuestoMensual = !isNaN(valor) && valor > 0 ? valor : 0;
+  guardarPresupuesto();
+  renderizarPresupuestoYComparativa();
+});
+
 function formatearMonto(valor) {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
     maximumFractionDigits: 2
   }).format(valor);
+}
+
+function renderizarPresupuestoYComparativa() {
+  const hoyISO = fechaHoyISO();
+  const mesActualPrefix = hoyISO.slice(0, 7); // YYYY-MM
+  const [anioHoy, mesHoy] = hoyISO.split("-").map(Number);
+  const anteriorMes = mesHoy === 1 ? 12 : mesHoy - 1;
+  const anteriorAnio = mesHoy === 1 ? anioHoy - 1 : anioHoy;
+  const mesAnteriorPrefix = `${anteriorAnio}-${String(anteriorMes).padStart(2, "0")}`;
+
+  let gastoMesActual = 0;
+  let ingresoMesActual = 0;
+  let gastoMesAnterior = 0;
+
+  for (const mov of movimientos) {
+    const prefijo = String(mov.fecha).slice(0, 7);
+    if (prefijo === mesActualPrefix) {
+      if (mov.tipo === "gasto") gastoMesActual += mov.monto;
+      if (mov.tipo === "ingreso") ingresoMesActual += mov.monto;
+    } else if (prefijo === mesAnteriorPrefix && mov.tipo === "gasto") {
+      gastoMesAnterior += mov.monto;
+    }
+  }
+
+  if (presupuestoMensual > 0) {
+    const porcentaje = (gastoMesActual / presupuestoMensual) * 100;
+    const anchoBarra = Math.min(100, Math.max(0, porcentaje));
+    barraProgreso.style.width = `${anchoBarra}%`;
+    textoPresupuesto.textContent = `Gastado en ${mesActualPrefix}: ${formatearMonto(
+      gastoMesActual
+    )} de ${formatearMonto(presupuestoMensual)} (${porcentaje.toFixed(1)}%)`;
+
+    if (porcentaje >= 100) {
+      barraProgreso.style.backgroundColor = "#b83b2b";
+      alertaPresupuesto.textContent = "¡Superaste tu presupuesto mensual!";
+    } else if (porcentaje >= 80) {
+      barraProgreso.style.backgroundColor = "#c77c14";
+      alertaPresupuesto.textContent = "Atención: estás cerca del límite mensual (80% o más).";
+    } else {
+      barraProgreso.style.backgroundColor = "#1f7a4c";
+      alertaPresupuesto.textContent = "";
+    }
+  } else {
+    barraProgreso.style.width = "0%";
+    textoPresupuesto.textContent = `Gastado en ${mesActualPrefix}: ${formatearMonto(
+      gastoMesActual
+    )} (sin límite configurado).`;
+    alertaPresupuesto.textContent = "";
+  }
+
+  let diferenciaTexto = "Sin gastos registrados el mes anterior para comparar.";
+  if (gastoMesAnterior > 0) {
+    const diffPorc = ((gastoMesActual - gastoMesAnterior) / gastoMesAnterior) * 100;
+    const signo = diffPorc >= 0 ? "+" : "";
+    diferenciaTexto = `Variación vs. mes anterior: ${signo}${diffPorc.toFixed(1)}%`;
+  }
+
+  comparativaMensual.innerHTML = `
+    <div><strong>Mes actual (${mesActualPrefix}):</strong> Gastos ${formatearMonto(
+      gastoMesActual
+    )} · Ingresos ${formatearMonto(ingresoMesActual)}</div>
+    <div><strong>Mes anterior (${mesAnteriorPrefix}):</strong> Gastos ${formatearMonto(
+      gastoMesAnterior
+    )}</div>
+    <div class="texto-ayuda">${escaparHTML(diferenciaTexto)}</div>
+  `;
 }
 
 function actualizarFiltroCategorias() {
@@ -212,12 +407,87 @@ function renderizarResumenCategorias(visibles) {
   }
 }
 
+function renderizarGraficoGastos(visibles) {
+  const ctx = graficoCanvas.getContext("2d");
+  const ancho = graficoCanvas.width;
+  const alto = graficoCanvas.height;
+  ctx.clearRect(0, 0, ancho, alto);
+
+  const gastosPorCat = {};
+  for (const mov of visibles) {
+    if (mov.tipo === "gasto") {
+      gastosPorCat[mov.categoria] = (gastosPorCat[mov.categoria] || 0) + mov.monto;
+    }
+  }
+
+  const entradas = Object.entries(gastosPorCat).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  if (entradas.length === 0) {
+    ctx.fillStyle = "#6b5a50";
+    ctx.font = "14px system-ui, sans-serif";
+    ctx.fillText("No hay gastos en la selección actual para graficar.", 16, 40);
+    return;
+  }
+
+  const maxValor = Math.max(...entradas.map(([, val]) => val));
+  const colores = ["#e07a3f", "#c86428", "#b83b2b", "#d99b52", "#8c4a27", "#e8a87c"];
+  const alturaBarra = 24;
+  const espacio = 10;
+  const inicioY = 14;
+
+  entradas.forEach(([cat, valor], idx) => {
+    const y = inicioY + idx * (alturaBarra + espacio);
+    const anchoBarra = maxValor > 0 ? Math.max(8, ((ancho - 190) * valor) / maxValor) : 8;
+
+    ctx.fillStyle = "#2b211b";
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillText(cat.slice(0, 14), 8, y + 16);
+
+    ctx.fillStyle = colores[idx % colores.length];
+    ctx.fillRect(115, y, anchoBarra, alturaBarra);
+
+    ctx.fillStyle = "#2b211b";
+    ctx.fillText(formatearMonto(valor), 122 + anchoBarra, y + 16);
+  });
+}
+
+function ordenarMovimientos(arr) {
+  const copia = [...arr];
+  copia.sort((a, b) => {
+    let cmp = 0;
+    if (ordenCampo === "monto") {
+      cmp = a.monto - b.monto;
+    } else if (ordenCampo === "categoria") {
+      cmp = a.categoria.localeCompare(b.categoria, "es");
+    } else {
+      cmp = String(a.fecha).localeCompare(String(b.fecha));
+    }
+    return ordenAsc ? cmp : -cmp;
+  });
+  return copia;
+}
+
+document.querySelectorAll(".btn-orden").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const campo = btn.dataset.campo;
+    if (ordenCampo === campo) {
+      ordenAsc = !ordenAsc;
+    } else {
+      ordenCampo = campo;
+      ordenAsc = campo === "categoria";
+    }
+    renderizar();
+  });
+});
+
 function renderizar() {
   actualizarFiltroCategorias();
+  renderizarPresupuestoYComparativa();
 
   const tipoSel = filtroTipo.value;
   const catSel = filtroCategoria.value;
   const consulta = buscarTexto.value.trim().toLowerCase();
+  const desde = fechaDesde.value;
+  const hasta = fechaHasta.value;
 
   let ingresos = 0;
   let gastos = 0;
@@ -234,17 +504,22 @@ function renderizar() {
   document.getElementById("total-gastos").textContent = formatearMonto(gastos);
   document.getElementById("saldo-neto").textContent = formatearMonto(ingresos - gastos);
 
-  const visibles = movimientos.filter((m) => {
+  const filtrados = movimientos.filter((m) => {
     const coincideTipo = tipoSel === "todos" || m.tipo === tipoSel;
     const coincideCat = catSel === "todas" || m.categoria === catSel;
     const coincideTexto =
       !consulta ||
       m.descripcion.toLowerCase().includes(consulta) ||
       m.categoria.toLowerCase().includes(consulta);
-    return coincideTipo && coincideCat && coincideTexto;
+    const coincideDesde = !desde || m.fecha >= desde;
+    const coincideHasta = !hasta || m.fecha <= hasta;
+    return coincideTipo && coincideCat && coincideTexto && coincideDesde && coincideHasta;
   });
 
+  const visibles = ordenarMovimientos(filtrados);
+
   renderizarResumenCategorias(visibles);
+  renderizarGraficoGastos(visibles);
   lista.innerHTML = "";
 
   if (visibles.length === 0) {
@@ -289,6 +564,11 @@ window.iniciarEdicion = function (id) {
   document.getElementById("descripcion").value = mov.descripcion;
   document.getElementById("monto").value = mov.monto;
 
+  modoRepeticion.value = "unico";
+  modoRepeticion.disabled = true;
+  cantidadRepeticiones.classList.add("oculto");
+  cantidadRepeticiones.disabled = true;
+
   btnGuardarMov.textContent = "Guardar cambios";
   btnCancelarEdicion.classList.remove("oculto");
   form.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -323,16 +603,36 @@ form.addEventListener("submit", (e) => {
     );
     cancelarEdicion();
   } else {
-    movimientos.unshift({
-      id: Date.now(),
-      fecha,
-      tipo,
-      categoria,
-      descripcion,
-      monto
-    });
+    const repModo = modoRepeticion.value;
+    const totalRep =
+      repModo === "unico"
+        ? 1
+        : Math.min(60, Math.max(2, parseInt(cantidadRepeticiones.value, 10) || 2));
+
+    const nuevos = [];
+    for (let i = 0; i < totalRep; i++) {
+      let descFinal = descripcion;
+      if (repModo === "cuotas") {
+        descFinal = `${descripcion} (Cuota ${i + 1}/${totalRep})`;
+      } else if (repModo === "recurrente" && totalRep > 1) {
+        descFinal = `${descripcion} (Mes ${i + 1}/${totalRep})`;
+      }
+
+      nuevos.push({
+        id: Date.now() + i,
+        fecha: sumarMesesAFecha(fecha, i),
+        tipo,
+        categoria,
+        descripcion: descFinal,
+        monto
+      });
+    }
+
+    movimientos = [...nuevos.reverse(), ...movimientos];
     form.reset();
     inputFecha.value = fechaHoyISO();
+    modoRepeticion.value = "unico";
+    cantidadRepeticiones.classList.add("oculto");
   }
 
   guardarMovimientos();
@@ -342,6 +642,27 @@ form.addEventListener("submit", (e) => {
 filtroTipo.addEventListener("change", renderizar);
 filtroCategoria.addEventListener("change", renderizar);
 buscarTexto.addEventListener("input", renderizar);
+fechaDesde.addEventListener("change", renderizar);
+fechaHasta.addEventListener("change", renderizar);
+
+btnLimpiarFiltros.addEventListener("click", () => {
+  filtroTipo.value = "todos";
+  filtroCategoria.value = "todas";
+  buscarTexto.value = "";
+  fechaDesde.value = "";
+  fechaHasta.value = "";
+  renderizar();
+});
+
+function descargarArchivo(contenido, nombreArchivo, tipoMime) {
+  const blob = new Blob([contenido], { type: tipoMime });
+  const url = URL.createObjectURL(blob);
+  const enlace = document.createElement("a");
+  enlace.href = url;
+  enlace.download = nombreArchivo;
+  enlace.click();
+  URL.revokeObjectURL(url);
+}
 
 btnExportar.addEventListener("click", () => {
   const encabezados = ["ID", "Fecha", "Tipo", "Categoria", "Descripcion", "Monto"];
@@ -355,14 +676,7 @@ btnExportar.addEventListener("click", () => {
   ]);
 
   const csv = [encabezados.join(","), ...filas.map((f) => f.join(","))].join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-
-  const enlace = document.createElement("a");
-  enlace.href = url;
-  enlace.download = `movimientos_${usuarioActivo}.csv`;
-  enlace.click();
-  URL.revokeObjectURL(url);
+  descargarArchivo(csv, `movimientos_${usuarioActivo}.csv`, "text/csv;charset=utf-8;");
 });
 
 btnImportar.addEventListener("click", () => {
@@ -415,7 +729,6 @@ inputImportarCsv.addEventListener("change", (e) => {
       const cols = parsearLineaCSV(lineas[i]);
       if (cols.length < 5) continue;
 
-      // Soporta tanto el formato con Fecha (6 columnas) como el anterior sin Fecha (5 columnas)
       const tieneFecha = cols.length >= 6;
       const fecha = tieneFecha ? cols[1].trim() || fechaHoyISO() : fechaHoyISO();
       const tipoRaw = (tieneFecha ? cols[2] : cols[1]).trim().toLowerCase();
@@ -449,6 +762,73 @@ inputImportarCsv.addEventListener("change", (e) => {
 
   lector.readAsText(archivo, "utf-8");
   inputImportarCsv.value = "";
+});
+
+btnExportarJson.addEventListener("click", () => {
+  const respaldo = {
+    usuario: usuarioActivo,
+    exportadoEn: new Date().toISOString(),
+    presupuestoMensual,
+    movimientos
+  };
+  descargarArchivo(
+    JSON.stringify(respaldo, null, 2),
+    `respaldo_${usuarioActivo}.json`,
+    "application/json;charset=utf-8;"
+  );
+});
+
+btnImportarJson.addEventListener("click", () => {
+  inputImportarJson.click();
+});
+
+inputImportarJson.addEventListener("change", (e) => {
+  const archivo = e.target.files[0];
+  if (!archivo) return;
+
+  const lector = new FileReader();
+  lector.onload = (evento) => {
+    try {
+      const datos = JSON.parse(String(evento.target.result || "{}"));
+      const listaOrigen = Array.isArray(datos)
+        ? datos
+        : Array.isArray(datos.movimientos)
+          ? datos.movimientos
+          : [];
+
+      const validos = listaOrigen
+        .filter((m) => m && Number(m.monto) > 0 && String(m.descripcion || "").trim() !== "")
+        .map((m, idx) => ({
+          id: Date.now() + idx,
+          fecha: m.fecha || fechaHoyISO(),
+          tipo: m.tipo === "ingreso" ? "ingreso" : "gasto",
+          categoria: String(m.categoria || "General").trim() || "General",
+          descripcion: String(m.descripcion).trim(),
+          monto: Number(m.monto)
+        }));
+
+      if (validos.length === 0) {
+        alert("El archivo JSON no contiene movimientos válidos.");
+        return;
+      }
+
+      if (!Array.isArray(datos) && Number(datos.presupuestoMensual) > 0) {
+        presupuestoMensual = Number(datos.presupuestoMensual);
+        inputPresupuestoMes.value = presupuestoMensual;
+        guardarPresupuesto();
+      }
+
+      movimientos = [...validos, ...movimientos];
+      guardarMovimientos();
+      renderizar();
+      alert(`Se importaron ${validos.length} movimiento(s) desde JSON.`);
+    } catch {
+      alert("No se pudo leer el archivo JSON. Verifica que tenga un formato válido.");
+    }
+  };
+
+  lector.readAsText(archivo, "utf-8");
+  inputImportarJson.value = "";
 });
 
 btnLimpiar.addEventListener("click", () => {

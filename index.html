@@ -35,40 +35,99 @@
         <h1>Gestor de Movimientos</h1>
         <div class="info-usuario">
           <span>Hola, <strong id="usuario-actual"></strong></span>
+          <button type="button" id="btn-cambiar-clave" class="btn-secundario">Cambiar clave</button>
+          <button type="button" id="btn-eliminar-cuenta" class="peligro">Eliminar cuenta</button>
           <button type="button" id="btn-cerrar-sesion" class="peligro">Cerrar sesión</button>
         </div>
       </header>
 
+      <!-- MODAL SENCILLO PARA CAMBIAR CONTRASEÑA -->
+      <section id="panel-cambiar-clave" class="panel-caja oculto">
+        <h2>Cambiar contraseña</h2>
+        <form id="form-cambiar-clave" class="formulario">
+          <input type="password" id="clave-actual" placeholder="Contraseña actual" required />
+          <input type="password" id="clave-nueva" placeholder="Nueva contraseña (mín. 4)" required />
+          <button type="submit">Guardar clave</button>
+          <button type="button" id="btn-cancelar-clave" class="btn-secundario">Cancelar</button>
+        </form>
+        <p id="mensaje-clave" class="mensaje-error"></p>
+      </section>
+
+      <!-- RESUMEN GENERAL -->
       <section class="resumen">
         <div class="tarjeta">
-          <span>Ingresos</span>
+          <span>Ingresos totales</span>
           <strong id="total-ingresos" class="texto-ingreso">$0</strong>
         </div>
         <div class="tarjeta">
-          <span>Gastos</span>
+          <span>Gastos totales</span>
           <strong id="total-gastos" class="texto-gasto">$0</strong>
         </div>
         <div class="tarjeta">
-          <span>Saldo</span>
+          <span>Saldo neto</span>
           <strong id="saldo-neto">$0</strong>
         </div>
       </section>
 
+      <!-- PRESUPUESTO MENSUAL + COMPARATIVA MENSUAL -->
+      <section class="grid-dos">
+        <div class="panel-caja">
+          <h2>Presupuesto de gastos del mes</h2>
+          <form id="form-presupuesto" class="formulario-compacto">
+            <input
+              type="number"
+              id="input-presupuesto-mes"
+              placeholder="Límite mensual (ej. 150000)"
+              step="0.01"
+              min="0"
+            />
+            <button type="submit">Guardar límite</button>
+          </form>
+          <div id="texto-presupuesto" class="texto-ayuda">Sin límite mensual definido.</div>
+          <div class="barra-fondo">
+            <div id="barra-progreso" class="barra-relleno"></div>
+          </div>
+          <p id="alerta-presupuesto" class="mensaje-error"></p>
+        </div>
+
+        <div class="panel-caja">
+          <h2>Comparativa mensual (Gastos)</h2>
+          <div id="comparativa-mensual" class="comparativa-contenido"></div>
+        </div>
+      </section>
+
+      <!-- FORMULARIO DE MOVIMIENTO / RECURRENCIA / CUOTAS -->
       <form id="form-movimiento" class="formulario">
         <select id="tipo">
           <option value="gasto">Gasto</option>
           <option value="ingreso">Ingreso</option>
         </select>
         <input type="date" id="fecha" required />
-        <input type="text" id="categoria" placeholder="Categoría (ej. Comida, Sueldo)" required />
+        <input type="text" id="categoria" placeholder="Categoría (ej. Comida, Cuotas)" required />
         <input type="text" id="descripcion" placeholder="Descripción breve" required />
         <input type="number" id="monto" placeholder="Monto" step="0.01" min="0.01" required />
+        <select id="modo-repeticion" title="Repetir movimiento">
+          <option value="unico">Una sola vez</option>
+          <option value="cuotas">En cuotas mensuales</option>
+          <option value="recurrente">Recurrente (mensual)</option>
+        </select>
+        <input
+          type="number"
+          id="cantidad-repeticiones"
+          class="oculto"
+          placeholder="Meses / cuotas"
+          min="2"
+          max="60"
+          value="3"
+          title="Cantidad de meses o cuotas"
+        />
         <button type="submit" id="btn-guardar-mov">Agregar</button>
         <button type="button" id="btn-cancelar-edicion" class="btn-secundario oculto">
           Cancelar edición
         </button>
       </form>
 
+      <!-- FILTROS, RANGO DE FECHAS Y RESPALDOS CSV / JSON -->
       <div class="acciones">
         <select id="filtro-tipo">
           <option value="todos">Todos los tipos</option>
@@ -79,25 +138,46 @@
           <option value="todas">Todas las categorías</option>
         </select>
         <input type="search" id="buscar-texto" placeholder="Buscar por descripción..." />
+        <label class="etiqueta-fecha">
+          Desde: <input type="date" id="fecha-desde" />
+        </label>
+        <label class="etiqueta-fecha">
+          Hasta: <input type="date" id="fecha-hasta" />
+        </label>
+        <button type="button" id="btn-limpiar-filtros" class="btn-secundario">Limpiar filtros</button>
+      </div>
+
+      <div class="acciones">
         <button type="button" id="btn-exportar">Exportar CSV</button>
         <button type="button" id="btn-importar" class="btn-secundario">Importar CSV</button>
         <input type="file" id="input-importar-csv" accept=".csv,text/csv" class="oculto" />
+        <button type="button" id="btn-exportar-json">Exportar JSON</button>
+        <button type="button" id="btn-importar-json" class="btn-secundario">Importar JSON</button>
+        <input type="file" id="input-importar-json" accept=".json,application/json" class="oculto" />
         <button type="button" id="btn-limpiar" class="peligro">Borrar todo</button>
       </div>
 
-      <section class="panel-categorias">
-        <h2>Resumen por categoría</h2>
-        <div id="resumen-categorias" class="chips-categorias"></div>
+      <!-- CATEGORÍAS + GRÁFICO EN CANVAS -->
+      <section class="grid-dos">
+        <div class="panel-caja">
+          <h2>Resumen por categoría (neto visible)</h2>
+          <div id="resumen-categorias" class="chips-categorias"></div>
+        </div>
+        <div class="panel-caja">
+          <h2>Gráfico de gastos por categoría</h2>
+          <canvas id="grafico-gastos" width="400" height="220"></canvas>
+        </div>
       </section>
 
+      <!-- TABLA ORDENABLES -->
       <table>
         <thead>
           <tr>
-            <th>Fecha</th>
+            <th><button type="button" class="btn-orden" data-campo="fecha">Fecha ↕</button></th>
             <th>Tipo</th>
-            <th>Categoría</th>
+            <th><button type="button" class="btn-orden" data-campo="categoria">Categoría ↕</button></th>
             <th>Descripción</th>
-            <th>Monto</th>
+            <th><button type="button" class="btn-orden" data-campo="monto">Monto ↕</button></th>
             <th>Acciones</th>
           </tr>
         </thead>

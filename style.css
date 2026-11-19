@@ -8,6 +8,7 @@
   --ingreso-bg: #edf9f2;
   --gasto: #b83b2b;
   --gasto-bg: #fdf0ee;
+  --alerta: #c77c14;
 }
 
 * {
@@ -24,7 +25,7 @@ body {
 }
 
 .contenedor {
-  max-width: 920px;
+  max-width: 1020px;
   margin: 0 auto;
 }
 
@@ -54,6 +55,13 @@ body {
   color: var(--gasto);
   font-size: 0.9rem;
   min-height: 18px;
+  margin-top: 6px;
+}
+
+.texto-ayuda {
+  font-size: 0.9rem;
+  color: #5a483e;
+  margin-top: 8px;
 }
 
 .cabecera-app {
@@ -68,21 +76,35 @@ body {
 .info-usuario {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .resumen {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
+.grid-dos {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.panel-caja,
 .tarjeta {
   background: var(--tarjeta);
   border: 1px solid var(--borde);
   border-radius: 10px;
   padding: 16px;
+}
+
+.panel-caja h2 {
+  font-size: 1rem;
+  margin-bottom: 10px;
 }
 
 .tarjeta strong {
@@ -100,11 +122,28 @@ body {
 }
 
 .formulario,
+.formulario-compacto,
 .acciones {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  margin-bottom: 14px;
+}
+
+.formulario {
+  background: var(--tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 14px;
   margin-bottom: 18px;
+}
+
+.etiqueta-fecha {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+  color: #4a3b32;
 }
 
 input,
@@ -139,17 +178,27 @@ button.peligro {
   background: var(--gasto);
 }
 
-.panel-categorias {
-  background: var(--tarjeta);
-  border: 1px solid var(--borde);
-  border-radius: 10px;
-  padding: 14px 16px;
-  margin-bottom: 18px;
+.barra-fondo {
+  width: 100%;
+  height: 14px;
+  background: #f5e6dc;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 10px;
 }
 
-.panel-categorias h2 {
-  font-size: 1rem;
-  margin-bottom: 10px;
+.barra-relleno {
+  height: 100%;
+  width: 0%;
+  background: var(--ingreso);
+  transition: width 0.25s ease, background-color 0.25s ease;
+}
+
+.comparativa-contenido {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.95rem;
 }
 
 .chips-categorias {
@@ -164,6 +213,12 @@ button.peligro {
   border-radius: 999px;
   padding: 6px 12px;
   font-size: 0.88rem;
+}
+
+canvas {
+  width: 100%;
+  max-height: 220px;
+  display: block;
 }
 
 .etiqueta-tipo {
@@ -200,6 +255,14 @@ td {
   border-bottom: 1px solid var(--borde);
 }
 
+.btn-orden {
+  background: transparent;
+  color: var(--texto);
+  padding: 2px 4px;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
 .celda-acciones {
   display: flex;
   gap: 6px;
@@ -224,8 +287,9 @@ td {
   padding: 20px;
 }
 
-@media (max-width: 640px) {
-  .resumen {
+@media (max-width: 760px) {
+  .resumen,
+  .grid-dos {
     grid-template-columns: 1fr;
   }
 }
