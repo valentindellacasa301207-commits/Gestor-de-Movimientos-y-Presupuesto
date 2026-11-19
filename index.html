@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestor de Movimientos</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="contenedor">
+    <h1>Gestor de Movimientos</h1>
+
+    <section class="resumen">
+      <div class="tarjeta">
+        <span>Ingresos</span>
+        <strong id="total-ingresos">$0</strong>
+      </div>
+      <div class="tarjeta">
+        <span>Gastos</span>
+        <strong id="total-gastos">$0</strong>
+      </div>
+      <div class="tarjeta">
+        <span>Saldo</span>
+        <strong id="saldo-neto">$0</strong>
+      </div>
+    </section>
+
+    <form id="form-movimiento" class="formulario">
+      <select id="tipo">
+        <option value="gasto">Gasto</option>
+        <option value="ingreso">Ingreso</option>
+      </select>
+      <input type="text" id="categoria" placeholder="Categoría (ej. Comida, Sueldo)" required />
+      <input type="text" id="descripcion" placeholder="Descripción breve" required />
+      <input type="number" id="monto" placeholder="Monto" step="0.01" min="0.01" required />
+      <button type="submit">Agregar</button>
+    </form>
+
+    <div class="acciones">
+      <select id="filtro-tipo">
+        <option value="todos">Todos</option>
+        <option value="ingreso">Solo ingresos</option>
+        <option value="gasto">Solo gastos</option>
+      </select>
+      <button type="button" id="btn-exportar">Exportar CSV</button>
+      <button type="button" id="btn-limpiar" class="peligro">Borrar todo</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Tipo</th>
+          <th>Categoría</th>
+          <th>Descripción</th>
+          <th>Monto</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody id="lista-movimientos"></tbody>
+    </table>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

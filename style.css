@@ -1,0 +1,101 @@
+:root {
+  --fondo: #fff8f3;
+  --tarjeta: #ffffff;
+  --borde: #f0d7c5;
+  --acento: #e07a3f;
+  --texto: #2b211b;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+body {
+  background: var(--fondo);
+  color: var(--texto);
+  padding: 24px;
+}
+
+.contenedor {
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+h1 {
+  margin-bottom: 20px;
+}
+
+.resumen {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.tarjeta {
+  background: var(--tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.tarjeta strong {
+  display: block;
+  font-size: 1.4rem;
+  margin-top: 6px;
+}
+
+.formulario,
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+input,
+select,
+button {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--borde);
+  background: #fff;
+  color: var(--texto);
+}
+
+button {
+  background: var(--acento);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+button.peligro {
+  background: #b83b2b;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--tarjeta);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--borde);
+}
+
+th,
+td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--borde);
+}
+
+.btn-borrar {
+  background: #e5533d;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
