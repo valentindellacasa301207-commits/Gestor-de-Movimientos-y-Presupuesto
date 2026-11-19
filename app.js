@@ -6,8 +6,6 @@ const EMAILJS_PUBLIC_KEY = "qMZwedfhyH5y_dCX0";
 const EMAILJS_SERVICE_ID = "service_7bdvpcu";
 const EMAILJS_TEMPLATE_ID = "template_6b8eib7";
 
-// Tasas base respecto a ARS (cuánto vale 1 unidad de la moneda en ARS, o factor desde ARS)
-// Usamos tasas de respaldo por si falla la API externa y actualizamos vía Frankfurter / open.er-api
 const TASAS_RESPALDO = {
   ARS: 1,
   USD: 1000,
@@ -27,7 +25,7 @@ let presupuestoMensual = 0;
 let presupuestosCategoria = {};
 let notasUsuario = "";
 let monedaActual = "ARS";
-let tasasPorARS = { ...TASAS_RESPALDO }; // cuántas unidades de la moneda equivalen a 1 ARS
+let tasasPorARS = { ...TASAS_RESPALDO };
 let etiquetaCotizacion = "Cotización de respaldo";
 let idEditando = null;
 let ordenCampo = "fecha";
@@ -125,6 +123,10 @@ const btnExportarXlsx = document.getElementById("btn-exportar-xlsx");
 const btnExportarPdf = document.getElementById("btn-exportar-pdf");
 const btnLimpiar = document.getElementById("btn-limpiar");
 
+function generarIdUnico(offset = 0) {
+  return Date.now() * 1000 + Math.floor(Math.random() * 1000) + offset;
+}
+
 document.querySelectorAll(".btn-ojo").forEach((btn) => {
   btn.addEventListener("click", () => {
     const campo = document.getElementById(btn.dataset.objetivo);
@@ -182,7 +184,6 @@ async function obtenerCotizacionesExternas(forzar = false) {
     }
     throw new Error("Respuesta inválida");
   } catch {
-    // Respaldo si no hay conexión o la API no responde
     tasasPorARS = {
       ARS: 1,
       USD: 1 / TASAS_RESPALDO.USD,
@@ -293,8 +294,8 @@ function claveMonedaUsuario() {
 
 function cargarDatosUsuario() {
   const crudos = JSON.parse(localStorage.getItem(claveMovimientosUsuario())) || [];
-  movimientos = crudos.map((m) => ({
-    id: m.id || Date.now() + Math.random(),
+  movimientos = crudos.map((m, idx) => ({
+    id: Number(m.id) || generarIdUnico(idx),
     fecha: m.fecha || fechaHoyISO(),
     tipo: m.tipo === "ingreso" ? "ingreso" : "gasto",
     categoria: m.categoria || "General",
@@ -750,7 +751,7 @@ function formatearMonto(valorARS) {
   return new Intl.NumberFormat(cfg.locale, {
     style: "currency",
     currency: cfg.currency,
-    maximumFractionDigits: monedaActual === "ARS" ? 2 : 2
+    maximumFractionDigits: 2
   }).format(convertido);
 }
 
@@ -1122,8 +1123,8 @@ function renderizar() {
       <td class="${mov.tipo === "ingreso" ? "texto-ingreso" : "texto-gasto"}">${formatearMonto(mov.monto)}</td>
       <td>
         <div class="celda-acciones">
-          <button type="button" class="btn-editar" onclick="iniciarEdicion(${mov.id})">Editar</button>
-          <button type="button" class="btn-borrar" onclick="eliminarMovimiento(${mov.id})">Eliminar</button>
+          <button type="button" class="btn-editar" data-accion="editar" data-id="${mov.id}">Editar</button>
+          <button type="button" class="btn-borrar" data-accion="eliminar" data-id="${mov.id}">Eliminar</button>
         </div>
       </td>
     `;
@@ -1131,8 +1132,9 @@ function renderizar() {
   }
 }
 
-window.iniciarEdicion = function (id) {
-  const mov = movimientos.find((m) => m.id === id);
+function iniciarEdicionPorId(id) {
+  const idBuscado = Number(id);
+  const mov = movimientos.find((m) => Number(m.id) === idBuscado);
   if (!mov) return;
 
   idEditando = mov.id;
@@ -1151,19 +1153,32 @@ window.iniciarEdicion = function (id) {
   btnGuardarMov.textContent = "Guardar cambios";
   btnCancelarEdicion.classList.remove("oculto");
   form.scrollIntoView({ behavior: "smooth", block: "nearest" });
-};
+}
 
-btnCancelarEdicion.addEventListener("click", cancelarEdicion);
-
-window.eliminarMovimiento = function (id) {
+function eliminarMovimientoPorId(id) {
+  const idBuscado = Number(id);
   if (!confirm("¿Seguro que quieres eliminar este movimiento?")) return;
-  if (idEditando === id) {
+  if (Number(idEditando) === idBuscado) {
     cancelarEdicion();
   }
-  movimientos = movimientos.filter((m) => m.id !== id);
+  movimientos = movimientos.filter((m) => Number(m.id) !== idBuscado);
   guardarMovimientos();
   renderizar();
-};
+}
+
+lista.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-accion][data-id]");
+  if (!btn) return;
+  const accion = btn.dataset.accion;
+  const id = btn.dataset.id;
+  if (accion === "editar") {
+    iniciarEdicionPorId(id);
+  } else if (accion === "eliminar") {
+    eliminarMovimientoPorId(id);
+  }
+});
+
+btnCancelarEdicion.addEventListener("click", cancelarEdicion);
 
 form.addEventListener("submit", (e) => {
   e.preventDefault();
@@ -1179,7 +1194,9 @@ form.addEventListener("submit", (e) => {
 
   if (idEditando !== null) {
     movimientos = movimientos.map((m) =>
-      m.id === idEditando ? { ...m, tipo, fecha, categoria, metodoPago, descripcion, monto } : m
+      Number(m.id) === Number(idEditando)
+        ? { ...m, tipo, fecha, categoria, metodoPago, descripcion, monto }
+        : m
     );
     cancelarEdicion();
   } else {
@@ -1199,7 +1216,7 @@ form.addEventListener("submit", (e) => {
       }
 
       nuevos.push({
-        id: Date.now() + i,
+        id: generarIdUnico(i),
         fecha: sumarMesesAFecha(fecha, i),
         tipo,
         categoria,
@@ -1328,7 +1345,7 @@ inputImportarCsv.addEventListener("change", (e) => {
       if (!descripcion || isNaN(monto) || monto <= 0) continue;
 
       importados.push({
-        id: Date.now() + i,
+        id: generarIdUnico(i),
         fecha,
         tipo,
         categoria,
@@ -1391,7 +1408,7 @@ inputImportarJson.addEventListener("change", (e) => {
       const validos = listaOrigen
         .filter((m) => m && Number(m.monto) > 0 && String(m.descripcion || "").trim() !== "")
         .map((m, idx) => ({
-          id: Date.now() + idx,
+          id: generarIdUnico(idx),
           fecha: m.fecha || fechaHoyISO(),
           tipo: m.tipo === "ingreso" ? "ingreso" : "gasto",
           categoria: String(m.categoria || "General").trim() || "General",
