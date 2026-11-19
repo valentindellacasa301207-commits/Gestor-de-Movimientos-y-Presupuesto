@@ -8,56 +8,79 @@
 </head>
 <body>
   <main class="contenedor">
-    <h1>Gestor de Movimientos</h1>
-
-    <section class="resumen">
-      <div class="tarjeta">
-        <span>Ingresos</span>
-        <strong id="total-ingresos">$0</strong>
-      </div>
-      <div class="tarjeta">
-        <span>Gastos</span>
-        <strong id="total-gastos">$0</strong>
-      </div>
-      <div class="tarjeta">
-        <span>Saldo</span>
-        <strong id="saldo-neto">$0</strong>
-      </div>
+    <!-- VISTA DE LOGIN / REGISTRO -->
+    <section id="vista-login" class="caja-login">
+      <h1 id="titulo-auth">Iniciar Sesión</h1>
+      <form id="form-auth" class="formulario-vertical">
+        <input type="text" id="auth-usuario" placeholder="Nombre de usuario" required />
+        <input type="password" id="auth-clave" placeholder="Contraseña" required />
+        <button type="submit" id="btn-auth-submit">Entrar</button>
+      </form>
+      <p id="mensaje-auth" class="mensaje-error"></p>
+      <button type="button" id="btn-cambiar-modo" class="btn-secundario">
+        ¿No tienes cuenta? Regístrate
+      </button>
     </section>
 
-    <form id="form-movimiento" class="formulario">
-      <select id="tipo">
-        <option value="gasto">Gasto</option>
-        <option value="ingreso">Ingreso</option>
-      </select>
-      <input type="text" id="categoria" placeholder="Categoría (ej. Comida, Sueldo)" required />
-      <input type="text" id="descripcion" placeholder="Descripción breve" required />
-      <input type="number" id="monto" placeholder="Monto" step="0.01" min="0.01" required />
-      <button type="submit">Agregar</button>
-    </form>
+    <!-- VISTA PRINCIPAL DE LA APP -->
+    <section id="vista-app" class="oculto">
+      <header class="cabecera-app">
+        <h1>Gestor de Movimientos</h1>
+        <div class="info-usuario">
+          <span>Hola, <strong id="usuario-actual"></strong></span>
+          <button type="button" id="btn-cerrar-sesion" class="peligro">Cerrar sesión</button>
+        </div>
+      </header>
 
-    <div class="acciones">
-      <select id="filtro-tipo">
-        <option value="todos">Todos</option>
-        <option value="ingreso">Solo ingresos</option>
-        <option value="gasto">Solo gastos</option>
-      </select>
-      <button type="button" id="btn-exportar">Exportar CSV</button>
-      <button type="button" id="btn-limpiar" class="peligro">Borrar todo</button>
-    </div>
+      <section class="resumen">
+        <div class="tarjeta">
+          <span>Ingresos</span>
+          <strong id="total-ingresos">$0</strong>
+        </div>
+        <div class="tarjeta">
+          <span>Gastos</span>
+          <strong id="total-gastos">$0</strong>
+        </div>
+        <div class="tarjeta">
+          <span>Saldo</span>
+          <strong id="saldo-neto">$0</strong>
+        </div>
+      </section>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Tipo</th>
-          <th>Categoría</th>
-          <th>Descripción</th>
-          <th>Monto</th>
-          <th>Acción</th>
-        </tr>
-      </thead>
-      <tbody id="lista-movimientos"></tbody>
-    </table>
+      <form id="form-movimiento" class="formulario">
+        <select id="tipo">
+          <option value="gasto">Gasto</option>
+          <option value="ingreso">Ingreso</option>
+        </select>
+        <input type="text" id="categoria" placeholder="Categoría (ej. Comida, Sueldo)" required />
+        <input type="text" id="descripcion" placeholder="Descripción breve" required />
+        <input type="number" id="monto" placeholder="Monto" step="0.01" min="0.01" required />
+        <button type="submit">Agregar</button>
+      </form>
+
+      <div class="acciones">
+        <select id="filtro-tipo">
+          <option value="todos">Todos</option>
+          <option value="ingreso">Solo ingresos</option>
+          <option value="gasto">Solo gastos</option>
+        </select>
+        <button type="button" id="btn-exportar">Exportar CSV</button>
+        <button type="button" id="btn-limpiar" class="peligro">Borrar todo</button>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Categoría</th>
+            <th>Descripción</th>
+            <th>Monto</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody id="lista-movimientos"></tbody>
+      </table>
+    </section>
   </main>
 
   <script src="app.js"></script>

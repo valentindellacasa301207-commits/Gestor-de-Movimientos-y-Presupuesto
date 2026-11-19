@@ -24,8 +24,47 @@ body {
   margin: 0 auto;
 }
 
-h1 {
+.oculto {
+  display: none !important;
+}
+
+.caja-login {
+  max-width: 380px;
+  margin: 60px auto;
+  background: var(--tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.formulario-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mensaje-error {
+  color: #b83b2b;
+  font-size: 0.9rem;
+  min-height: 18px;
+}
+
+.cabecera-app {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
   margin-bottom: 20px;
+}
+
+.info-usuario {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .resumen {
@@ -72,6 +111,12 @@ button {
   border: none;
   cursor: pointer;
   font-weight: 600;
+}
+
+button.btn-secundario {
+  background: transparent;
+  color: var(--acento);
+  border: 1px solid var(--borde);
 }
 
 button.peligro {
