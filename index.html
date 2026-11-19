@@ -21,7 +21,10 @@
           title="Entre 3 y 20 caracteres: letras, números, punto, guion o guion bajo"
           required
         />
-        <input type="password" id="auth-clave" placeholder="Contraseña (mín. 4 caracteres)" required />
+        <div class="campo-clave">
+          <input type="password" id="auth-clave" placeholder="Contraseña (mín. 4 caracteres)" required />
+          <button type="button" class="btn-ojo" data-objetivo="auth-clave" title="Mostrar/ocultar">👁</button>
+        </div>
 
         <!-- Solo visible al registrarse -->
         <div id="campos-registro" class="formulario-vertical oculto">
@@ -55,9 +58,14 @@
             placeholder="Tu nombre de usuario"
             required
           />
-          <button type="submit" id="btn-enviar-codigo" class="btn-secundario">
-            Enviar código al correo
-          </button>
+          <div class="fila-botones-codigo">
+            <button type="submit" id="btn-enviar-codigo" class="btn-secundario">
+              Enviar código al correo
+            </button>
+            <button type="button" id="btn-reenviar-codigo" class="btn-secundario oculto" disabled>
+              Reenviar (30s)
+            </button>
+          </div>
         </form>
 
         <form id="form-restablecer-codigo" class="formulario-vertical oculto">
@@ -68,12 +76,15 @@
             maxlength="6"
             required
           />
-          <input
-            type="password"
-            id="rec-nueva-clave"
-            placeholder="Nueva contraseña (mín. 4 caracteres)"
-            required
-          />
+          <div class="campo-clave">
+            <input
+              type="password"
+              id="rec-nueva-clave"
+              placeholder="Nueva contraseña (mín. 4 caracteres)"
+              required
+            />
+            <button type="button" class="btn-ojo" data-objetivo="rec-nueva-clave" title="Mostrar/ocultar">👁</button>
+          </div>
           <button type="submit">Restablecer contraseña</button>
         </form>
 
@@ -91,18 +102,45 @@
         <h1>Gestor de Movimientos</h1>
         <div class="info-usuario">
           <span>Hola, <strong id="usuario-actual"></strong></span>
+          <label class="etiqueta-fecha">
+            Moneda:
+            <select id="selector-moneda" title="Seleccionar moneda">
+              <option value="ARS">ARS ($)</option>
+              <option value="USD">USD (US$)</option>
+              <option value="EUR">EUR (€)</option>
+            </select>
+          </label>
+          <button type="button" id="btn-cambiar-correo" class="btn-secundario">Cambiar correo</button>
           <button type="button" id="btn-cambiar-clave" class="btn-secundario">Cambiar clave</button>
           <button type="button" id="btn-eliminar-cuenta" class="peligro">Eliminar cuenta</button>
           <button type="button" id="btn-cerrar-sesion" class="peligro">Cerrar sesión</button>
         </div>
       </header>
 
+      <!-- PANEL PARA CAMBIAR CORREO ASOCIADO -->
+      <section id="panel-cambiar-correo" class="panel-caja oculto">
+        <h2>Cambiar correo electrónico de recuperación</h2>
+        <p id="correo-actual-texto" class="texto-ayuda"></p>
+        <form id="form-cambiar-correo" class="formulario">
+          <input type="email" id="correo-nuevo" placeholder="Nuevo correo electrónico" required />
+          <button type="submit">Guardar correo</button>
+          <button type="button" id="btn-cancelar-correo" class="btn-secundario">Cancelar</button>
+        </form>
+        <p id="mensaje-correo" class="mensaje-error"></p>
+      </section>
+
       <!-- PANEL PARA CAMBIAR CONTRASEÑA -->
       <section id="panel-cambiar-clave" class="panel-caja oculto">
         <h2>Cambiar contraseña</h2>
         <form id="form-cambiar-clave" class="formulario">
-          <input type="password" id="clave-actual" placeholder="Contraseña actual" required />
-          <input type="password" id="clave-nueva" placeholder="Nueva contraseña (mín. 4)" required />
+          <div class="campo-clave">
+            <input type="password" id="clave-actual" placeholder="Contraseña actual" required />
+            <button type="button" class="btn-ojo" data-objetivo="clave-actual" title="Mostrar/ocultar">👁</button>
+          </div>
+          <div class="campo-clave">
+            <input type="password" id="clave-nueva" placeholder="Nueva contraseña (mín. 4)" required />
+            <button type="button" class="btn-ojo" data-objetivo="clave-nueva" title="Mostrar/ocultar">👁</button>
+          </div>
           <button type="submit">Guardar clave</button>
           <button type="button" id="btn-cancelar-clave" class="btn-secundario">Cancelar</button>
         </form>
@@ -152,7 +190,45 @@
         </div>
       </section>
 
-      <!-- FORMULARIO DE MOVIMIENTO / RECURRENCIA / CUOTAS -->
+      <!-- PRESUPUESTO POR CATEGORÍA + NOTAS RÁPIDAS -->
+      <section class="grid-dos">
+        <div class="panel-caja">
+          <h2>Presupuesto mensual por categoría</h2>
+          <form id="form-presupuesto-cat" class="formulario-compacto">
+            <input
+              type="text"
+              id="cat-presupuesto-nombre"
+              placeholder="Categoría (ej. Comida)"
+              required
+            />
+            <input
+              type="number"
+              id="cat-presupuesto-monto"
+              placeholder="Límite mensual"
+              step="0.01"
+              min="0.01"
+              required
+            />
+            <button type="submit">Fijar tope</button>
+          </form>
+          <div id="lista-presupuestos-cat" class="lista-topes-cat"></div>
+        </div>
+
+        <div class="panel-caja">
+          <h2>Notas y recordatorios rápidos</h2>
+          <textarea
+            id="notas-usuario"
+            rows="4"
+            placeholder="Anota vencimientos, deudas pendientes, metas de ahorro o recordatorios..."
+          ></textarea>
+          <div class="pie-notas">
+            <span id="estado-notas" class="texto-ayuda">Guardado automático</span>
+            <button type="button" id="btn-guardar-notas" class="btn-secundario">Guardar notas</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- FORMULARIO DE MOVIMIENTO / MÉTODO DE PAGO / RECURRENCIA / CUOTAS -->
       <form id="form-movimiento" class="formulario">
         <select id="tipo">
           <option value="gasto">Gasto</option>
@@ -160,6 +236,12 @@
         </select>
         <input type="date" id="fecha" required />
         <input type="text" id="categoria" placeholder="Categoría (ej. Comida, Cuotas)" required />
+        <select id="metodo-pago" title="Método de pago">
+          <option value="Efectivo">Efectivo</option>
+          <option value="Débito">Débito</option>
+          <option value="Crédito">Crédito</option>
+          <option value="Transferencia">Transferencia</option>
+        </select>
         <input type="text" id="descripcion" placeholder="Descripción breve" required />
         <input type="number" id="monto" placeholder="Monto" step="0.01" min="0.01" required />
         <select id="modo-repeticion" title="Repetir movimiento">
@@ -193,6 +275,13 @@
         <select id="filtro-categoria">
           <option value="todas">Todas las categorías</option>
         </select>
+        <select id="filtro-metodo">
+          <option value="todos">Todos los métodos</option>
+          <option value="Efectivo">Efectivo</option>
+          <option value="Débito">Débito</option>
+          <option value="Crédito">Crédito</option>
+          <option value="Transferencia">Transferencia</option>
+        </select>
         <input type="search" id="buscar-texto" placeholder="Buscar por descripción..." />
         <label class="etiqueta-fecha">
           Desde: <input type="date" id="fecha-desde" />
@@ -213,15 +302,20 @@
         <button type="button" id="btn-limpiar" class="peligro">Borrar todo</button>
       </div>
 
-      <!-- CATEGORÍAS + GRÁFICO EN CANVAS -->
+      <!-- CATEGORÍAS + GRÁFICOS EN CANVAS -->
+      <section class="panel-caja">
+        <h2>Resumen por categoría (neto visible)</h2>
+        <div id="resumen-categorias" class="chips-categorias"></div>
+      </section>
+
       <section class="grid-dos">
         <div class="panel-caja">
-          <h2>Resumen por categoría (neto visible)</h2>
-          <div id="resumen-categorias" class="chips-categorias"></div>
+          <h2>Gráfico de gastos por categoría</h2>
+          <canvas id="grafico-gastos" width="460" height="220"></canvas>
         </div>
         <div class="panel-caja">
-          <h2>Gráfico de gastos por categoría</h2>
-          <canvas id="grafico-gastos" width="400" height="220"></canvas>
+          <h2>Evolución mensual (Ingresos vs. Gastos)</h2>
+          <canvas id="grafico-evolucion" width="460" height="220"></canvas>
         </div>
       </section>
 
@@ -232,6 +326,7 @@
             <th><button type="button" class="btn-orden" data-campo="fecha">Fecha ↕</button></th>
             <th>Tipo</th>
             <th><button type="button" class="btn-orden" data-campo="categoria">Categoría ↕</button></th>
+            <th>Método</th>
             <th>Descripción</th>
             <th><button type="button" class="btn-orden" data-campo="monto">Monto ↕</button></th>
             <th>Acciones</th>

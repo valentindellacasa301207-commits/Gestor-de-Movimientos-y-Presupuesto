@@ -25,7 +25,7 @@ body {
 }
 
 .contenedor {
-  max-width: 1020px;
+  max-width: 1060px;
   margin: 0 auto;
 }
 
@@ -34,7 +34,7 @@ body {
 }
 
 .caja-login {
-  max-width: 380px;
+  max-width: 400px;
   margin: 60px auto;
   background: var(--tarjeta);
   border: 1px solid var(--borde);
@@ -49,6 +49,32 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.campo-clave {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.campo-clave input {
+  width: 100%;
+  padding-right: 42px;
+}
+
+.btn-ojo {
+  position: absolute;
+  right: 6px;
+  background: transparent;
+  color: var(--texto);
+  padding: 6px 8px;
+  font-size: 1rem;
+}
+
+.fila-botones-codigo {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .acciones-login {
@@ -88,7 +114,7 @@ button.btn-link {
 .texto-ayuda {
   font-size: 0.9rem;
   color: #5a483e;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .cabecera-app {
@@ -127,6 +153,11 @@ button.btn-link {
   border: 1px solid var(--borde);
   border-radius: 10px;
   padding: 16px;
+  margin-bottom: 14px;
+}
+
+.grid-dos .panel-caja {
+  margin-bottom: 0;
 }
 
 .panel-caja h2 {
@@ -175,12 +206,55 @@ button.btn-link {
 
 input,
 select,
+textarea,
 button {
   padding: 10px 12px;
   border-radius: 8px;
   border: 1px solid var(--borde);
   background: #fff;
   color: var(--texto);
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.pie-notas {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.lista-topes-cat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.item-tope-cat {
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.cabecera-tope {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+}
+
+.btn-mini-borrar {
+  background: transparent;
+  color: var(--gasto);
+  padding: 2px 6px;
+  font-size: 0.85rem;
 }
 
 button {
@@ -191,7 +265,12 @@ button {
   font-weight: 600;
 }
 
-button:hover {
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+button:hover:not(:disabled) {
   opacity: 0.92;
 }
 
@@ -207,11 +286,11 @@ button.peligro {
 
 .barra-fondo {
   width: 100%;
-  height: 14px;
+  height: 12px;
   background: #f5e6dc;
   border-radius: 999px;
   overflow: hidden;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .barra-relleno {

@@ -2,17 +2,27 @@ const CLAVE_USUARIOS = "gestor_usuarios_v1";
 const CLAVE_SESION = "gestor_sesion_activa_v1";
 
 const EMAILJS_PUBLIC_KEY = "qMZwedfhyH5y_dCX0";
-const EMAILJS_SERVICE_ID = "service_7bdvpcu"; //[cite: 2]
-const EMAILJS_TEMPLATE_ID = "template_6b8eib7"; //[cite: 3]
+const EMAILJS_SERVICE_ID = "service_7bdvpcu";
+const EMAILJS_TEMPLATE_ID = "template_6b8eib7";
+
+const CONFIG_MONEDAS = {
+  ARS: { locale: "es-AR", currency: "ARS" },
+  USD: { locale: "en-US", currency: "USD" },
+  EUR: { locale: "es-ES", currency: "EUR" }
+};
 
 let modoRegistro = false;
 let usuarioActivo = localStorage.getItem(CLAVE_SESION) || null;
 let movimientos = [];
 let presupuestoMensual = 0;
+let presupuestosCategoria = {};
+let notasUsuario = "";
+let monedaActual = "ARS";
 let idEditando = null;
 let ordenCampo = "fecha";
 let ordenAsc = false;
 let solicitudCodigoPendiente = null;
+let intervaloReenvio = null;
 
 if (window.emailjs && !EMAILJS_PUBLIC_KEY.startsWith("TU_")) {
   emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
@@ -26,6 +36,7 @@ const btnAuthSubmit = document.getElementById("btn-auth-submit");
 const btnCambiarModo = document.getElementById("btn-cambiar-modo");
 const mensajeAuth = document.getElementById("mensaje-auth");
 const spanUsuarioActual = document.getElementById("usuario-actual");
+const selectorMoneda = document.getElementById("selector-moneda");
 const btnCerrarSesion = document.getElementById("btn-cerrar-sesion");
 
 const camposRegistro = document.getElementById("campos-registro");
@@ -34,10 +45,18 @@ const btnOlvideClave = document.getElementById("btn-olvide-clave");
 const panelRecuperarClave = document.getElementById("panel-recuperar-clave");
 const formEnviarCodigo = document.getElementById("form-enviar-codigo");
 const btnEnviarCodigo = document.getElementById("btn-enviar-codigo");
+const btnReenviarCodigo = document.getElementById("btn-reenviar-codigo");
 const formRestablecerCodigo = document.getElementById("form-restablecer-codigo");
 const textoEstadoRecuperar = document.getElementById("texto-estado-recuperar");
 const mensajeRecuperar = document.getElementById("mensaje-recuperar");
 const btnCancelarRecuperar = document.getElementById("btn-cancelar-recuperar");
+
+const btnCambiarCorreo = document.getElementById("btn-cambiar-correo");
+const panelCambiarCorreo = document.getElementById("panel-cambiar-correo");
+const correoActualTexto = document.getElementById("correo-actual-texto");
+const formCambiarCorreo = document.getElementById("form-cambiar-correo");
+const btnCancelarCorreo = document.getElementById("btn-cancelar-correo");
+const mensajeCorreo = document.getElementById("mensaje-correo");
 
 const btnCambiarClave = document.getElementById("btn-cambiar-clave");
 const panelCambiarClave = document.getElementById("panel-cambiar-clave");
@@ -53,8 +72,18 @@ const barraProgreso = document.getElementById("barra-progreso");
 const alertaPresupuesto = document.getElementById("alerta-presupuesto");
 const comparativaMensual = document.getElementById("comparativa-mensual");
 
+const formPresupuestoCat = document.getElementById("form-presupuesto-cat");
+const catPresupuestoNombre = document.getElementById("cat-presupuesto-nombre");
+const catPresupuestoMonto = document.getElementById("cat-presupuesto-monto");
+const listaPresupuestosCat = document.getElementById("lista-presupuestos-cat");
+
+const notasTextarea = document.getElementById("notas-usuario");
+const estadoNotas = document.getElementById("estado-notas");
+const btnGuardarNotas = document.getElementById("btn-guardar-notas");
+
 const form = document.getElementById("form-movimiento");
 const inputFecha = document.getElementById("fecha");
+const inputMetodoPago = document.getElementById("metodo-pago");
 const modoRepeticion = document.getElementById("modo-repeticion");
 const cantidadRepeticiones = document.getElementById("cantidad-repeticiones");
 const btnGuardarMov = document.getElementById("btn-guardar-mov");
@@ -63,6 +92,7 @@ const btnCancelarEdicion = document.getElementById("btn-cancelar-edicion");
 const lista = document.getElementById("lista-movimientos");
 const filtroTipo = document.getElementById("filtro-tipo");
 const filtroCategoria = document.getElementById("filtro-categoria");
+const filtroMetodo = document.getElementById("filtro-metodo");
 const buscarTexto = document.getElementById("buscar-texto");
 const fechaDesde = document.getElementById("fecha-desde");
 const fechaHasta = document.getElementById("fecha-hasta");
@@ -70,6 +100,7 @@ const btnLimpiarFiltros = document.getElementById("btn-limpiar-filtros");
 
 const resumenCategorias = document.getElementById("resumen-categorias");
 const graficoCanvas = document.getElementById("grafico-gastos");
+const graficoEvolucion = document.getElementById("grafico-evolucion");
 
 const btnExportar = document.getElementById("btn-exportar");
 const btnImportar = document.getElementById("btn-importar");
@@ -78,6 +109,14 @@ const btnExportarJson = document.getElementById("btn-exportar-json");
 const btnImportarJson = document.getElementById("btn-importar-json");
 const inputImportarJson = document.getElementById("input-importar-json");
 const btnLimpiar = document.getElementById("btn-limpiar");
+
+document.querySelectorAll(".btn-ojo").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const campo = document.getElementById(btn.dataset.objetivo);
+    if (!campo) return;
+    campo.type = campo.type === "password" ? "text" : "password";
+  });
+});
 
 function fechaHoyISO() {
   const hoy = new Date();
@@ -139,8 +178,7 @@ function enmascararCorreo(correo) {
 }
 
 function generarCodigoSeisDigitos() {
-  const num = Math.floor(100000 + Math.random() * 900000);
-  return String(num);
+  return String(Math.floor(100000 + Math.random() * 900000));
 }
 
 function claveMovimientosUsuario() {
@@ -151,6 +189,18 @@ function clavePresupuestoUsuario() {
   return `presupuesto_${usuarioActivo}`;
 }
 
+function clavePresupuestosCatUsuario() {
+  return `presupuestos_cat_${usuarioActivo}`;
+}
+
+function claveNotasUsuario() {
+  return `notas_${usuarioActivo}`;
+}
+
+function claveMonedaUsuario() {
+  return `moneda_${usuarioActivo}`;
+}
+
 function cargarDatosUsuario() {
   const crudos = JSON.parse(localStorage.getItem(claveMovimientosUsuario())) || [];
   movimientos = crudos.map((m) => ({
@@ -158,12 +208,21 @@ function cargarDatosUsuario() {
     fecha: m.fecha || fechaHoyISO(),
     tipo: m.tipo === "ingreso" ? "ingreso" : "gasto",
     categoria: m.categoria || "General",
+    metodoPago: m.metodoPago || "Efectivo",
     descripcion: m.descripcion || "",
     monto: Number(m.monto) || 0
   }));
 
   presupuestoMensual = Number(localStorage.getItem(clavePresupuestoUsuario())) || 0;
   inputPresupuestoMes.value = presupuestoMensual > 0 ? presupuestoMensual : "";
+
+  presupuestosCategoria = JSON.parse(localStorage.getItem(clavePresupuestosCatUsuario())) || {};
+  notasUsuario = localStorage.getItem(claveNotasUsuario()) || "";
+  notasTextarea.value = notasUsuario;
+
+  const monedaGuardada = localStorage.getItem(claveMonedaUsuario());
+  monedaActual = CONFIG_MONEDAS[monedaGuardada] ? monedaGuardada : "ARS";
+  selectorMoneda.value = monedaActual;
 }
 
 function guardarMovimientos() {
@@ -174,6 +233,16 @@ function guardarPresupuesto() {
   localStorage.setItem(clavePresupuestoUsuario(), String(presupuestoMensual));
 }
 
+function guardarPresupuestosCategoria() {
+  localStorage.setItem(clavePresupuestosCatUsuario(), JSON.stringify(presupuestosCategoria));
+}
+
+function guardarNotas() {
+  notasUsuario = notasTextarea.value;
+  localStorage.setItem(claveNotasUsuario(), notasUsuario);
+  estadoNotas.textContent = "Notas guardadas";
+}
+
 function cancelarEdicion() {
   idEditando = null;
   btnGuardarMov.textContent = "Agregar";
@@ -182,6 +251,7 @@ function cancelarEdicion() {
   cantidadRepeticiones.disabled = false;
   form.reset();
   inputFecha.value = fechaHoyISO();
+  inputMetodoPago.value = "Efectivo";
   cantidadRepeticiones.classList.add("oculto");
 }
 
@@ -190,6 +260,7 @@ function actualizarVistaSesion() {
     vistaLogin.classList.add("oculto");
     vistaApp.classList.remove("oculto");
     panelCambiarClave.classList.add("oculto");
+    panelCambiarCorreo.classList.add("oculto");
     spanUsuarioActual.textContent = usuarioActivo;
     inputFecha.value = fechaHoyISO();
     cargarDatosUsuario();
@@ -200,6 +271,12 @@ function actualizarVistaSesion() {
     vistaLogin.classList.remove("oculto");
   }
 }
+
+selectorMoneda.addEventListener("change", () => {
+  monedaActual = CONFIG_MONEDAS[selectorMoneda.value] ? selectorMoneda.value : "ARS";
+  localStorage.setItem(claveMonedaUsuario(), monedaActual);
+  renderizar();
+});
 
 btnCambiarModo.addEventListener("click", () => {
   modoRegistro = !modoRegistro;
@@ -269,7 +346,37 @@ formAuth.addEventListener("submit", async (e) => {
   actualizarVistaSesion();
 });
 
+function detenerTemporizadorReenvio() {
+  if (intervaloReenvio) {
+    clearInterval(intervaloReenvio);
+    intervaloReenvio = null;
+  }
+  btnReenviarCodigo.classList.add("oculto");
+  btnReenviarCodigo.disabled = true;
+}
+
+function iniciarTemporizadorReenvio(segundos = 30) {
+  detenerTemporizadorReenvio();
+  let restante = segundos;
+  btnReenviarCodigo.classList.remove("oculto");
+  btnReenviarCodigo.disabled = true;
+  btnReenviarCodigo.textContent = `Reenviar (${restante}s)`;
+
+  intervaloReenvio = setInterval(() => {
+    restante -= 1;
+    if (restante <= 0) {
+      clearInterval(intervaloReenvio);
+      intervaloReenvio = null;
+      btnReenviarCodigo.disabled = false;
+      btnReenviarCodigo.textContent = "Reenviar código";
+    } else {
+      btnReenviarCodigo.textContent = `Reenviar (${restante}s)`;
+    }
+  }, 1000);
+}
+
 function resetearPanelRecuperacion() {
+  detenerTemporizadorReenvio();
   solicitudCodigoPendiente = null;
   formEnviarCodigo.reset();
   formRestablecerCodigo.reset();
@@ -278,20 +385,8 @@ function resetearPanelRecuperacion() {
   mensajeRecuperar.textContent = "";
 }
 
-btnOlvideClave.addEventListener("click", () => {
-  mensajeAuth.textContent = "";
-  resetearPanelRecuperacion();
-  panelRecuperarClave.classList.toggle("oculto");
-});
-
-btnCancelarRecuperar.addEventListener("click", () => {
-  resetearPanelRecuperacion();
-  panelRecuperarClave.classList.add("oculto");
-});
-
-formEnviarCodigo.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const usuario = document.getElementById("rec-usuario").value.trim().toLowerCase();
+async function solicitarEnvioCodigo(usuarioInput) {
+  const usuario = String(usuarioInput || "").trim().toLowerCase();
   mensajeRecuperar.textContent = "";
   textoEstadoRecuperar.textContent = "";
 
@@ -337,6 +432,7 @@ formEnviarCodigo.addEventListener("submit", async (e) => {
     textoEstadoRecuperar.textContent = `Enviamos un código de 6 dígitos a ${enmascararCorreo(
       reg.correo
     )}. Vence en 10 minutos.`;
+    iniciarTemporizadorReenvio(30);
   } catch {
     mensajeRecuperar.textContent =
       "No se pudo enviar el correo. Verifica tus claves de EmailJS y tu plantilla.";
@@ -344,6 +440,29 @@ formEnviarCodigo.addEventListener("submit", async (e) => {
     btnEnviarCodigo.disabled = false;
     btnEnviarCodigo.textContent = "Enviar código al correo";
   }
+}
+
+btnOlvideClave.addEventListener("click", () => {
+  mensajeAuth.textContent = "";
+  resetearPanelRecuperacion();
+  panelRecuperarClave.classList.toggle("oculto");
+});
+
+btnCancelarRecuperar.addEventListener("click", () => {
+  resetearPanelRecuperacion();
+  panelRecuperarClave.classList.add("oculto");
+});
+
+formEnviarCodigo.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  await solicitarEnvioCodigo(document.getElementById("rec-usuario").value);
+});
+
+btnReenviarCodigo.addEventListener("click", async () => {
+  const usuarioBase =
+    (solicitudCodigoPendiente && solicitudCodigoPendiente.usuario) ||
+    document.getElementById("rec-usuario").value;
+  await solicitarEnvioCodigo(usuarioBase);
 });
 
 formRestablecerCodigo.addEventListener("submit", async (e) => {
@@ -395,10 +514,48 @@ btnCerrarSesion.addEventListener("click", () => {
   actualizarVistaSesion();
 });
 
+btnCambiarCorreo.addEventListener("click", () => {
+  mensajeCorreo.textContent = "";
+  formCambiarCorreo.reset();
+  const reg = normalizarUsuario(obtenerUsuarios()[usuarioActivo]);
+  correoActualTexto.textContent = reg && reg.correo
+    ? `Correo actual: ${reg.correo}`
+    : "No tienes un correo registrado actualmente.";
+  panelCambiarCorreo.classList.toggle("oculto");
+  panelCambiarClave.classList.add("oculto");
+});
+
+btnCancelarCorreo.addEventListener("click", () => {
+  panelCambiarCorreo.classList.add("oculto");
+  mensajeCorreo.textContent = "";
+});
+
+formCambiarCorreo.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const nuevoCorreo = document.getElementById("correo-nuevo").value.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nuevoCorreo)) {
+    mensajeCorreo.textContent = "Ingresa un correo electrónico válido.";
+    return;
+  }
+
+  const usuarios = obtenerUsuarios();
+  const reg = normalizarUsuario(usuarios[usuarioActivo]);
+  if (!reg) return;
+
+  reg.correo = nuevoCorreo;
+  usuarios[usuarioActivo] = reg;
+  guardarUsuarios(usuarios);
+
+  panelCambiarCorreo.classList.add("oculto");
+  formCambiarCorreo.reset();
+  alert("Correo de recuperación actualizado.");
+});
+
 btnCambiarClave.addEventListener("click", () => {
   mensajeClave.textContent = "";
   formCambiarClave.reset();
   panelCambiarClave.classList.toggle("oculto");
+  panelCambiarCorreo.classList.add("oculto");
 });
 
 btnCancelarClave.addEventListener("click", () => {
@@ -436,7 +593,7 @@ formCambiarClave.addEventListener("submit", async (e) => {
 btnEliminarCuenta.addEventListener("click", () => {
   if (
     !confirm(
-      `¿Seguro que quieres eliminar la cuenta "${usuarioActivo}" y todos sus movimientos y presupuestos?`
+      `¿Seguro que quieres eliminar la cuenta "${usuarioActivo}" y todos sus datos guardados?`
     )
   ) {
     return;
@@ -448,6 +605,9 @@ btnEliminarCuenta.addEventListener("click", () => {
 
   localStorage.removeItem(claveMovimientosUsuario());
   localStorage.removeItem(clavePresupuestoUsuario());
+  localStorage.removeItem(clavePresupuestosCatUsuario());
+  localStorage.removeItem(claveNotasUsuario());
+  localStorage.removeItem(claveMonedaUsuario());
   localStorage.removeItem(CLAVE_SESION);
 
   usuarioActivo = null;
@@ -470,12 +630,75 @@ formPresupuesto.addEventListener("submit", (e) => {
   renderizarPresupuestoYComparativa();
 });
 
+formPresupuestoCat.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const cat = catPresupuestoNombre.value.trim();
+  const tope = parseFloat(catPresupuestoMonto.value);
+  if (!cat || isNaN(tope) || tope <= 0) return;
+
+  presupuestosCategoria[cat] = tope;
+  guardarPresupuestosCategoria();
+  formPresupuestoCat.reset();
+  renderizarPresupuestosCategoria();
+});
+
+window.eliminarTopeCategoria = function (cat) {
+  delete presupuestosCategoria[cat];
+  guardarPresupuestosCategoria();
+  renderizarPresupuestosCategoria();
+};
+
+btnGuardarNotas.addEventListener("click", guardarNotas);
+notasTextarea.addEventListener("input", () => {
+  guardarNotas();
+});
+
 function formatearMonto(valor) {
-  return new Intl.NumberFormat("es-AR", {
+  const cfg = CONFIG_MONEDAS[monedaActual] || CONFIG_MONEDAS.ARS;
+  return new Intl.NumberFormat(cfg.locale, {
     style: "currency",
-    currency: "ARS",
+    currency: cfg.currency,
     maximumFractionDigits: 2
   }).format(valor);
+}
+
+function renderizarPresupuestosCategoria() {
+  const mesActualPrefix = fechaHoyISO().slice(0, 7);
+  const gastosMesCat = {};
+
+  for (const mov of movimientos) {
+    if (mov.tipo === "gasto" && String(mov.fecha).slice(0, 7) === mesActualPrefix) {
+      gastosMesCat[mov.categoria] = (gastosMesCat[mov.categoria] || 0) + mov.monto;
+    }
+  }
+
+  const entradas = Object.entries(presupuestosCategoria);
+  listaPresupuestosCat.innerHTML = "";
+
+  if (entradas.length === 0) {
+    listaPresupuestosCat.innerHTML = `<div class="texto-ayuda">Sin topes por categoría configurados.</div>`;
+    return;
+  }
+
+  for (const [cat, tope] of entradas) {
+    const gastado = gastosMesCat[cat] || 0;
+    const porc = (gastado / tope) * 100;
+    const ancho = Math.min(100, Math.max(0, porc));
+    const colorBarra = porc >= 100 ? "#b83b2b" : porc >= 80 ? "#c77c14" : "#1f7a4c";
+
+    const item = document.createElement("div");
+    item.className = "item-tope-cat";
+    item.innerHTML = `
+      <div class="cabecera-tope">
+        <span><strong>${escaparHTML(cat)}:</strong> ${formatearMonto(gastado)} / ${formatearMonto(tope)} (${porc.toFixed(0)}%)</span>
+        <button type="button" class="btn-mini-borrar" onclick="eliminarTopeCategoria('${escaparHTML(cat).replace(/'/g, "\\'")}')">✕</button>
+      </div>
+      <div class="barra-fondo">
+        <div class="barra-relleno" style="width: ${ancho}%; background-color: ${colorBarra};"></div>
+      </div>
+    `;
+    listaPresupuestosCat.appendChild(item);
+  }
 }
 
 function renderizarPresupuestoYComparativa() {
@@ -542,6 +765,8 @@ function renderizarPresupuestoYComparativa() {
     )}</div>
     <div class="texto-ayuda">${escaparHTML(diferenciaTexto)}</div>
   `;
+
+  renderizarPresupuestosCategoria();
 }
 
 function actualizarFiltroCategorias() {
@@ -617,7 +842,7 @@ function renderizarGraficoGastos(visibles) {
 
   entradas.forEach(([cat, valor], idx) => {
     const y = inicioY + idx * (alturaBarra + espacio);
-    const anchoBarra = maxValor > 0 ? Math.max(8, ((ancho - 190) * valor) / maxValor) : 8;
+    const anchoBarra = maxValor > 0 ? Math.max(8, ((ancho - 210) * valor) / maxValor) : 8;
 
     ctx.fillStyle = "#2b211b";
     ctx.font = "12px system-ui, sans-serif";
@@ -628,6 +853,71 @@ function renderizarGraficoGastos(visibles) {
 
     ctx.fillStyle = "#2b211b";
     ctx.fillText(formatearMonto(valor), 122 + anchoBarra, y + 16);
+  });
+}
+
+function renderizarGraficoEvolucion(visibles) {
+  const ctx = graficoEvolucion.getContext("2d");
+  const ancho = graficoEvolucion.width;
+  const alto = graficoEvolucion.height;
+  ctx.clearRect(0, 0, ancho, alto);
+
+  const porMes = {};
+  for (const mov of visibles) {
+    const mes = String(mov.fecha).slice(0, 7);
+    if (!mes) continue;
+    if (!porMes[mes]) porMes[mes] = { ingreso: 0, gasto: 0 };
+    if (mov.tipo === "ingreso") porMes[mes].ingreso += mov.monto;
+    else porMes[mes].gasto += mov.monto;
+  }
+
+  const mesesOrdenados = Object.keys(porMes).sort().slice(-5);
+  if (mesesOrdenados.length === 0) {
+    ctx.fillStyle = "#6b5a50";
+    ctx.font = "14px system-ui, sans-serif";
+    ctx.fillText("Sin movimientos mensuales para graficar.", 16, 40);
+    return;
+  }
+
+  const maxMonto = Math.max(
+    1,
+    ...mesesOrdenados.flatMap((m) => [porMes[m].ingreso, porMes[m].gasto])
+  );
+
+  // Leyenda
+  ctx.font = "12px system-ui, sans-serif";
+  ctx.fillStyle = "#1f7a4c";
+  ctx.fillRect(14, 10, 12, 12);
+  ctx.fillStyle = "#2b211b";
+  ctx.fillText("Ingresos", 32, 20);
+
+  ctx.fillStyle = "#b83b2b";
+  ctx.fillRect(105, 10, 12, 12);
+  ctx.fillStyle = "#2b211b";
+  ctx.fillText("Gastos", 123, 20);
+
+  const baseY = alto - 34;
+  const maxAltura = alto - 75;
+  const grupoAncho = (ancho - 40) / mesesOrdenados.length;
+
+  mesesOrdenados.forEach((mes, i) => {
+    const xBase = 24 + i * grupoAncho;
+    const ing = porMes[mes].ingreso;
+    const gas = porMes[mes].gasto;
+
+    const altIng = (ing / maxMonto) * maxAltura;
+    const altGas = (gas / maxMonto) * maxAltura;
+    const anchoCol = Math.min(24, Math.max(10, grupoAncho * 0.28));
+
+    ctx.fillStyle = "#1f7a4c";
+    ctx.fillRect(xBase, baseY - altIng, anchoCol, altIng);
+
+    ctx.fillStyle = "#b83b2b";
+    ctx.fillRect(xBase + anchoCol + 4, baseY - altGas, anchoCol, altGas);
+
+    ctx.fillStyle = "#2b211b";
+    ctx.font = "11px system-ui, sans-serif";
+    ctx.fillText(mes, xBase, baseY + 16);
   });
 }
 
@@ -666,6 +956,7 @@ function renderizar() {
 
   const tipoSel = filtroTipo.value;
   const catSel = filtroCategoria.value;
+  const metodoSel = filtroMetodo.value;
   const consulta = buscarTexto.value.trim().toLowerCase();
   const desde = fechaDesde.value;
   const hasta = fechaHasta.value;
@@ -688,19 +979,29 @@ function renderizar() {
   const filtrados = movimientos.filter((m) => {
     const coincideTipo = tipoSel === "todos" || m.tipo === tipoSel;
     const coincideCat = catSel === "todas" || m.categoria === catSel;
+    const coincideMetodo = metodoSel === "todos" || m.metodoPago === metodoSel;
     const coincideTexto =
       !consulta ||
       m.descripcion.toLowerCase().includes(consulta) ||
-      m.categoria.toLowerCase().includes(consulta);
+      m.categoria.toLowerCase().includes(consulta) ||
+      m.metodoPago.toLowerCase().includes(consulta);
     const coincideDesde = !desde || m.fecha >= desde;
     const coincideHasta = !hasta || m.fecha <= hasta;
-    return coincideTipo && coincideCat && coincideTexto && coincideDesde && coincideHasta;
+    return (
+      coincideTipo &&
+      coincideCat &&
+      coincideMetodo &&
+      coincideTexto &&
+      coincideDesde &&
+      coincideHasta
+    );
   });
 
   const visibles = ordenarMovimientos(filtrados);
 
   renderizarResumenCategorias(visibles);
   renderizarGraficoGastos(visibles);
+  renderizarGraficoEvolucion(visibles);
   lista.innerHTML = "";
 
   if (visibles.length === 0) {
@@ -708,7 +1009,7 @@ function renderizar() {
       movimientos.length === 0
         ? "Todavía no hay movimientos registrados."
         : "No se encontraron movimientos con los filtros actuales.";
-    lista.innerHTML = `<tr><td colspan="6" class="fila-vacia">${mensaje}</td></tr>`;
+    lista.innerHTML = `<tr><td colspan="7" class="fila-vacia">${mensaje}</td></tr>`;
     return;
   }
 
@@ -721,6 +1022,7 @@ function renderizar() {
       <td>${escaparHTML(mov.fecha)}</td>
       <td><span class="etiqueta-tipo ${claseEtiqueta}">${textoTipo}</span></td>
       <td>${escaparHTML(mov.categoria)}</td>
+      <td>${escaparHTML(mov.metodoPago)}</td>
       <td>${escaparHTML(mov.descripcion)}</td>
       <td class="${mov.tipo === "ingreso" ? "texto-ingreso" : "texto-gasto"}">${formatearMonto(mov.monto)}</td>
       <td>
@@ -742,6 +1044,7 @@ window.iniciarEdicion = function (id) {
   document.getElementById("tipo").value = mov.tipo;
   inputFecha.value = mov.fecha;
   document.getElementById("categoria").value = mov.categoria;
+  inputMetodoPago.value = mov.metodoPago || "Efectivo";
   document.getElementById("descripcion").value = mov.descripcion;
   document.getElementById("monto").value = mov.monto;
 
@@ -773,6 +1076,7 @@ form.addEventListener("submit", (e) => {
   const tipo = document.getElementById("tipo").value;
   const fecha = inputFecha.value || fechaHoyISO();
   const categoria = document.getElementById("categoria").value.trim();
+  const metodoPago = inputMetodoPago.value || "Efectivo";
   const descripcion = document.getElementById("descripcion").value.trim();
   const monto = parseFloat(document.getElementById("monto").value);
 
@@ -780,7 +1084,7 @@ form.addEventListener("submit", (e) => {
 
   if (idEditando !== null) {
     movimientos = movimientos.map((m) =>
-      m.id === idEditando ? { ...m, tipo, fecha, categoria, descripcion, monto } : m
+      m.id === idEditando ? { ...m, tipo, fecha, categoria, metodoPago, descripcion, monto } : m
     );
     cancelarEdicion();
   } else {
@@ -804,6 +1108,7 @@ form.addEventListener("submit", (e) => {
         fecha: sumarMesesAFecha(fecha, i),
         tipo,
         categoria,
+        metodoPago,
         descripcion: descFinal,
         monto
       });
@@ -812,6 +1117,7 @@ form.addEventListener("submit", (e) => {
     movimientos = [...nuevos.reverse(), ...movimientos];
     form.reset();
     inputFecha.value = fechaHoyISO();
+    inputMetodoPago.value = "Efectivo";
     modoRepeticion.value = "unico";
     cantidadRepeticiones.classList.add("oculto");
   }
@@ -822,6 +1128,7 @@ form.addEventListener("submit", (e) => {
 
 filtroTipo.addEventListener("change", renderizar);
 filtroCategoria.addEventListener("change", renderizar);
+filtroMetodo.addEventListener("change", renderizar);
 buscarTexto.addEventListener("input", renderizar);
 fechaDesde.addEventListener("change", renderizar);
 fechaHasta.addEventListener("change", renderizar);
@@ -829,6 +1136,7 @@ fechaHasta.addEventListener("change", renderizar);
 btnLimpiarFiltros.addEventListener("click", () => {
   filtroTipo.value = "todos";
   filtroCategoria.value = "todas";
+  filtroMetodo.value = "todos";
   buscarTexto.value = "";
   fechaDesde.value = "";
   fechaHasta.value = "";
@@ -846,12 +1154,13 @@ function descargarArchivo(contenido, nombreArchivo, tipoMime) {
 }
 
 btnExportar.addEventListener("click", () => {
-  const encabezados = ["ID", "Fecha", "Tipo", "Categoria", "Descripcion", "Monto"];
+  const encabezados = ["ID", "Fecha", "Tipo", "Categoria", "MetodoPago", "Descripcion", "Monto"];
   const filas = movimientos.map((m) => [
     m.id,
     `"${String(m.fecha).replace(/"/g, '""')}"`,
     m.tipo,
     `"${String(m.categoria).replace(/"/g, '""')}"`,
+    `"${String(m.metodoPago).replace(/"/g, '""')}"`,
     `"${String(m.descripcion).replace(/"/g, '""')}"`,
     m.monto
   ]);
@@ -910,12 +1219,15 @@ inputImportarCsv.addEventListener("change", (e) => {
       const cols = parsearLineaCSV(lineas[i]);
       if (cols.length < 5) continue;
 
+      const tieneMetodo = cols.length >= 7;
       const tieneFecha = cols.length >= 6;
+
       const fecha = tieneFecha ? cols[1].trim() || fechaHoyISO() : fechaHoyISO();
       const tipoRaw = (tieneFecha ? cols[2] : cols[1]).trim().toLowerCase();
       const categoria = (tieneFecha ? cols[3] : cols[2]).trim() || "General";
-      const descripcion = (tieneFecha ? cols[4] : cols[3]).trim();
-      const monto = parseFloat((tieneFecha ? cols[5] : cols[4]).trim());
+      const metodoPago = tieneMetodo ? cols[4].trim() || "Efectivo" : "Efectivo";
+      const descripcion = (tieneMetodo ? cols[5] : tieneFecha ? cols[4] : cols[3]).trim();
+      const monto = parseFloat((tieneMetodo ? cols[6] : tieneFecha ? cols[5] : cols[4]).trim());
 
       const tipo = tipoRaw === "ingreso" ? "ingreso" : "gasto";
       if (!descripcion || isNaN(monto) || monto <= 0) continue;
@@ -925,6 +1237,7 @@ inputImportarCsv.addEventListener("change", (e) => {
         fecha,
         tipo,
         categoria,
+        metodoPago,
         descripcion,
         monto
       });
@@ -949,7 +1262,10 @@ btnExportarJson.addEventListener("click", () => {
   const respaldo = {
     usuario: usuarioActivo,
     exportadoEn: new Date().toISOString(),
+    moneda: monedaActual,
     presupuestoMensual,
+    presupuestosCategoria,
+    notas: notasTextarea.value,
     movimientos
   };
   descargarArchivo(
@@ -984,6 +1300,7 @@ inputImportarJson.addEventListener("change", (e) => {
           fecha: m.fecha || fechaHoyISO(),
           tipo: m.tipo === "ingreso" ? "ingreso" : "gasto",
           categoria: String(m.categoria || "General").trim() || "General",
+          metodoPago: String(m.metodoPago || "Efectivo").trim() || "Efectivo",
           descripcion: String(m.descripcion).trim(),
           monto: Number(m.monto)
         }));
@@ -993,10 +1310,25 @@ inputImportarJson.addEventListener("change", (e) => {
         return;
       }
 
-      if (!Array.isArray(datos) && Number(datos.presupuestoMensual) > 0) {
-        presupuestoMensual = Number(datos.presupuestoMensual);
-        inputPresupuestoMes.value = presupuestoMensual;
-        guardarPresupuesto();
+      if (!Array.isArray(datos)) {
+        if (Number(datos.presupuestoMensual) > 0) {
+          presupuestoMensual = Number(datos.presupuestoMensual);
+          inputPresupuestoMes.value = presupuestoMensual;
+          guardarPresupuesto();
+        }
+        if (datos.presupuestosCategoria && typeof datos.presupuestosCategoria === "object") {
+          presupuestosCategoria = { ...presupuestosCategoria, ...datos.presupuestosCategoria };
+          guardarPresupuestosCategoria();
+        }
+        if (typeof datos.notas === "string" && datos.notas.trim() !== "") {
+          notasTextarea.value = datos.notas;
+          guardarNotas();
+        }
+        if (CONFIG_MONEDAS[datos.moneda]) {
+          monedaActual = datos.moneda;
+          selectorMoneda.value = monedaActual;
+          localStorage.setItem(claveMonedaUsuario(), monedaActual);
+        }
       }
 
       movimientos = [...validos, ...movimientos];
