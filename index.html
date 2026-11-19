@@ -12,8 +12,15 @@
     <section id="vista-login" class="caja-login">
       <h1 id="titulo-auth">Iniciar Sesión</h1>
       <form id="form-auth" class="formulario-vertical">
-        <input type="text" id="auth-usuario" placeholder="Nombre de usuario" required />
-        <input type="password" id="auth-clave" placeholder="Contraseña" required />
+        <input
+          type="text"
+          id="auth-usuario"
+          placeholder="Usuario (ej. valentin, sin espacios)"
+          pattern="[a-zA-Z0-9._-]{3,20}"
+          title="Entre 3 y 20 caracteres: letras, números, punto, guion o guion bajo"
+          required
+        />
+        <input type="password" id="auth-clave" placeholder="Contraseña (mín. 4 caracteres)" required />
         <button type="submit" id="btn-auth-submit">Entrar</button>
       </form>
       <p id="mensaje-auth" class="mensaje-error"></p>
@@ -35,11 +42,11 @@
       <section class="resumen">
         <div class="tarjeta">
           <span>Ingresos</span>
-          <strong id="total-ingresos">$0</strong>
+          <strong id="total-ingresos" class="texto-ingreso">$0</strong>
         </div>
         <div class="tarjeta">
           <span>Gastos</span>
-          <strong id="total-gastos">$0</strong>
+          <strong id="total-gastos" class="texto-gasto">$0</strong>
         </div>
         <div class="tarjeta">
           <span>Saldo</span>
@@ -52,30 +59,46 @@
           <option value="gasto">Gasto</option>
           <option value="ingreso">Ingreso</option>
         </select>
+        <input type="date" id="fecha" required />
         <input type="text" id="categoria" placeholder="Categoría (ej. Comida, Sueldo)" required />
         <input type="text" id="descripcion" placeholder="Descripción breve" required />
         <input type="number" id="monto" placeholder="Monto" step="0.01" min="0.01" required />
-        <button type="submit">Agregar</button>
+        <button type="submit" id="btn-guardar-mov">Agregar</button>
+        <button type="button" id="btn-cancelar-edicion" class="btn-secundario oculto">
+          Cancelar edición
+        </button>
       </form>
 
       <div class="acciones">
         <select id="filtro-tipo">
-          <option value="todos">Todos</option>
+          <option value="todos">Todos los tipos</option>
           <option value="ingreso">Solo ingresos</option>
           <option value="gasto">Solo gastos</option>
         </select>
+        <select id="filtro-categoria">
+          <option value="todas">Todas las categorías</option>
+        </select>
+        <input type="search" id="buscar-texto" placeholder="Buscar por descripción..." />
         <button type="button" id="btn-exportar">Exportar CSV</button>
+        <button type="button" id="btn-importar" class="btn-secundario">Importar CSV</button>
+        <input type="file" id="input-importar-csv" accept=".csv,text/csv" class="oculto" />
         <button type="button" id="btn-limpiar" class="peligro">Borrar todo</button>
       </div>
+
+      <section class="panel-categorias">
+        <h2>Resumen por categoría</h2>
+        <div id="resumen-categorias" class="chips-categorias"></div>
+      </section>
 
       <table>
         <thead>
           <tr>
+            <th>Fecha</th>
             <th>Tipo</th>
             <th>Categoría</th>
             <th>Descripción</th>
             <th>Monto</th>
-            <th>Acción</th>
+            <th>Acciones</th>
           </tr>
         </thead>
         <tbody id="lista-movimientos"></tbody>

@@ -4,6 +4,10 @@
   --borde: #f0d7c5;
   --acento: #e07a3f;
   --texto: #2b211b;
+  --ingreso: #1f7a4c;
+  --ingreso-bg: #edf9f2;
+  --gasto: #b83b2b;
+  --gasto-bg: #fdf0ee;
 }
 
 * {
@@ -20,7 +24,7 @@ body {
 }
 
 .contenedor {
-  max-width: 820px;
+  max-width: 920px;
   margin: 0 auto;
 }
 
@@ -47,7 +51,7 @@ body {
 }
 
 .mensaje-error {
-  color: #b83b2b;
+  color: var(--gasto);
   font-size: 0.9rem;
   min-height: 18px;
 }
@@ -87,6 +91,14 @@ body {
   margin-top: 6px;
 }
 
+.texto-ingreso {
+  color: var(--ingreso);
+}
+
+.texto-gasto {
+  color: var(--gasto);
+}
+
 .formulario,
 .acciones {
   display: flex;
@@ -113,14 +125,63 @@ button {
   font-weight: 600;
 }
 
+button:hover {
+  opacity: 0.92;
+}
+
 button.btn-secundario {
-  background: transparent;
+  background: #fff;
   color: var(--acento);
   border: 1px solid var(--borde);
 }
 
 button.peligro {
-  background: #b83b2b;
+  background: var(--gasto);
+}
+
+.panel-categorias {
+  background: var(--tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+
+.panel-categorias h2 {
+  font-size: 1rem;
+  margin-bottom: 10px;
+}
+
+.chips-categorias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.88rem;
+}
+
+.etiqueta-tipo {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.etiqueta-ingreso {
+  background: var(--ingreso-bg);
+  color: var(--ingreso);
+}
+
+.etiqueta-gasto {
+  background: var(--gasto-bg);
+  color: var(--gasto);
 }
 
 table {
@@ -139,8 +200,32 @@ td {
   border-bottom: 1px solid var(--borde);
 }
 
-.btn-borrar {
-  background: #e5533d;
+.celda-acciones {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn-editar {
+  background: #c86428;
   padding: 6px 10px;
   font-size: 0.85rem;
+}
+
+.btn-borrar {
+  background: var(--gasto);
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+
+.fila-vacia {
+  text-align: center;
+  color: #6b5a50;
+  padding: 20px;
+}
+
+@media (max-width: 640px) {
+  .resumen {
+    grid-template-columns: 1fr;
+  }
 }
