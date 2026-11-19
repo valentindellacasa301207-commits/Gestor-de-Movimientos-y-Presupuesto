@@ -1,6 +1,10 @@
 const CLAVE_USUARIOS = "gestor_usuarios_v1";
 const CLAVE_SESION = "gestor_sesion_activa_v1";
 
+const EMAILJS_PUBLIC_KEY = "qMZwedfhyH5y_dCX0";
+const EMAILJS_SERVICE_ID = "service_7bdvpcu"; //[cite: 2]
+const EMAILJS_TEMPLATE_ID = "template_6b8eib7"; //[cite: 3]
+
 let modoRegistro = false;
 let usuarioActivo = localStorage.getItem(CLAVE_SESION) || null;
 let movimientos = [];
@@ -8,6 +12,11 @@ let presupuestoMensual = 0;
 let idEditando = null;
 let ordenCampo = "fecha";
 let ordenAsc = false;
+let solicitudCodigoPendiente = null;
+
+if (window.emailjs && !EMAILJS_PUBLIC_KEY.startsWith("TU_")) {
+  emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+}
 
 const vistaLogin = document.getElementById("vista-login");
 const vistaApp = document.getElementById("vista-app");
@@ -19,14 +28,14 @@ const mensajeAuth = document.getElementById("mensaje-auth");
 const spanUsuarioActual = document.getElementById("usuario-actual");
 const btnCerrarSesion = document.getElementById("btn-cerrar-sesion");
 
-const camposSeguridadRegistro = document.getElementById("campos-seguridad-registro");
-const inputPregunta = document.getElementById("auth-pregunta");
-const inputRespuesta = document.getElementById("auth-respuesta");
+const camposRegistro = document.getElementById("campos-registro");
+const inputCorreoRegistro = document.getElementById("auth-correo");
 const btnOlvideClave = document.getElementById("btn-olvide-clave");
 const panelRecuperarClave = document.getElementById("panel-recuperar-clave");
-const formRecuperarClave = document.getElementById("form-recuperar-clave");
-const btnBuscarPregunta = document.getElementById("btn-buscar-pregunta");
-const textoPreguntaSeguridad = document.getElementById("texto-pregunta-seguridad");
+const formEnviarCodigo = document.getElementById("form-enviar-codigo");
+const btnEnviarCodigo = document.getElementById("btn-enviar-codigo");
+const formRestablecerCodigo = document.getElementById("form-restablecer-codigo");
+const textoEstadoRecuperar = document.getElementById("texto-estado-recuperar");
 const mensajeRecuperar = document.getElementById("mensaje-recuperar");
 const btnCancelarRecuperar = document.getElementById("btn-cancelar-recuperar");
 
@@ -117,9 +126,21 @@ function guardarUsuarios(usuarios) {
 function normalizarUsuario(registro) {
   if (!registro) return null;
   if (typeof registro === "string") {
-    return { claveHash: registro, pregunta: "", respuestaHash: "" };
+    return { claveHash: registro, correo: "" };
   }
   return registro;
+}
+
+function enmascararCorreo(correo) {
+  if (!correo || !correo.includes("@")) return "";
+  const [nombre, dominio] = correo.split("@");
+  const visible = nombre.slice(0, 2);
+  return `${visible}${"*".repeat(Math.max(2, nombre.length - 2))}@${dominio}`;
+}
+
+function generarCodigoSeisDigitos() {
+  const num = Math.floor(100000 + Math.random() * 900000);
+  return String(num);
 }
 
 function claveMovimientosUsuario() {
@@ -190,14 +211,12 @@ btnCambiarModo.addEventListener("click", () => {
     : "¿No tienes cuenta? Regístrate";
 
   if (modoRegistro) {
-    camposSeguridadRegistro.classList.remove("oculto");
+    camposRegistro.classList.remove("oculto");
     panelRecuperarClave.classList.add("oculto");
-    inputPregunta.required = true;
-    inputRespuesta.required = true;
+    inputCorreoRegistro.required = true;
   } else {
-    camposSeguridadRegistro.classList.add("oculto");
-    inputPregunta.required = false;
-    inputRespuesta.required = false;
+    camposRegistro.classList.add("oculto");
+    inputCorreoRegistro.required = false;
   }
 });
 
@@ -205,8 +224,7 @@ formAuth.addEventListener("submit", async (e) => {
   e.preventDefault();
   const usuario = document.getElementById("auth-usuario").value.trim().toLowerCase();
   const clave = document.getElementById("auth-clave").value;
-  const pregunta = inputPregunta.value.trim();
-  const respuesta = inputRespuesta.value.trim().toLowerCase();
+  const correo = inputCorreoRegistro.value.trim().toLowerCase();
 
   if (!/^[a-z0-9._-]{3,20}$/.test(usuario)) {
     mensajeAuth.textContent = "El usuario debe tener entre 3 y 20 caracteres sin espacios.";
@@ -218,8 +236,8 @@ formAuth.addEventListener("submit", async (e) => {
     return;
   }
 
-  if (modoRegistro && (!pregunta || !respuesta)) {
-    mensajeAuth.textContent = "Completa la pregunta y respuesta de seguridad.";
+  if (modoRegistro && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+    mensajeAuth.textContent = "Ingresa un correo electrónico válido para poder recuperar tu cuenta.";
     return;
   }
 
@@ -233,8 +251,7 @@ formAuth.addEventListener("submit", async (e) => {
     }
     usuarios[usuario] = {
       claveHash: claveHasheada,
-      pregunta,
-      respuestaHash: await hashClave(respuesta)
+      correo
     };
     guardarUsuarios(usuarios);
   } else {
@@ -252,51 +269,104 @@ formAuth.addEventListener("submit", async (e) => {
   actualizarVistaSesion();
 });
 
+function resetearPanelRecuperacion() {
+  solicitudCodigoPendiente = null;
+  formEnviarCodigo.reset();
+  formRestablecerCodigo.reset();
+  formRestablecerCodigo.classList.add("oculto");
+  textoEstadoRecuperar.textContent = "";
+  mensajeRecuperar.textContent = "";
+}
+
 btnOlvideClave.addEventListener("click", () => {
   mensajeAuth.textContent = "";
-  mensajeRecuperar.textContent = "";
-  textoPreguntaSeguridad.textContent = "";
-  formRecuperarClave.reset();
+  resetearPanelRecuperacion();
   panelRecuperarClave.classList.toggle("oculto");
 });
 
 btnCancelarRecuperar.addEventListener("click", () => {
+  resetearPanelRecuperacion();
   panelRecuperarClave.classList.add("oculto");
-  mensajeRecuperar.textContent = "";
-  textoPreguntaSeguridad.textContent = "";
 });
 
-btnBuscarPregunta.addEventListener("click", () => {
+formEnviarCodigo.addEventListener("submit", async (e) => {
+  e.preventDefault();
   const usuario = document.getElementById("rec-usuario").value.trim().toLowerCase();
   mensajeRecuperar.textContent = "";
-  textoPreguntaSeguridad.textContent = "";
-
-  if (!usuario) {
-    mensajeRecuperar.textContent = "Escribe primero tu nombre de usuario.";
-    return;
-  }
+  textoEstadoRecuperar.textContent = "";
 
   const usuarios = obtenerUsuarios();
   const reg = normalizarUsuario(usuarios[usuario]);
 
   if (!reg) {
-    mensajeRecuperar.textContent = "No existe una cuenta con ese usuario.";
+    mensajeRecuperar.textContent = "No existe una cuenta con ese nombre de usuario.";
     return;
   }
 
-  if (!reg.pregunta || !reg.respuestaHash) {
-    mensajeRecuperar.textContent = "Esta cuenta no tiene pregunta de seguridad configurada.";
+  if (!reg.correo) {
+    mensajeRecuperar.textContent = "Esta cuenta no tiene un correo registrado para enviar códigos.";
     return;
   }
 
-  textoPreguntaSeguridad.textContent = `Pregunta: ${reg.pregunta}`;
+  if (
+    !window.emailjs ||
+    EMAILJS_PUBLIC_KEY.startsWith("TU_") ||
+    EMAILJS_SERVICE_ID.startsWith("TU_") ||
+    EMAILJS_TEMPLATE_ID.startsWith("TU_")
+  ) {
+    mensajeRecuperar.textContent =
+      "Falta configurar EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID y EMAILJS_TEMPLATE_ID en app.js.";
+    return;
+  }
+
+  const codigo = generarCodigoSeisDigitos();
+  const expiraEn = Date.now() + 10 * 60 * 1000;
+
+  btnEnviarCodigo.disabled = true;
+  btnEnviarCodigo.textContent = "Enviando...";
+
+  try {
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email: reg.correo,
+      usuario,
+      codigo
+    });
+
+    solicitudCodigoPendiente = { usuario, codigo, expiraEn };
+    formRestablecerCodigo.classList.remove("oculto");
+    textoEstadoRecuperar.textContent = `Enviamos un código de 6 dígitos a ${enmascararCorreo(
+      reg.correo
+    )}. Vence en 10 minutos.`;
+  } catch {
+    mensajeRecuperar.textContent =
+      "No se pudo enviar el correo. Verifica tus claves de EmailJS y tu plantilla.";
+  } finally {
+    btnEnviarCodigo.disabled = false;
+    btnEnviarCodigo.textContent = "Enviar código al correo";
+  }
 });
 
-formRecuperarClave.addEventListener("submit", async (e) => {
+formRestablecerCodigo.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const usuario = document.getElementById("rec-usuario").value.trim().toLowerCase();
-  const respuesta = document.getElementById("rec-respuesta").value.trim().toLowerCase();
+  const codigoIngresado = document.getElementById("rec-codigo").value.trim();
   const nuevaClave = document.getElementById("rec-nueva-clave").value;
+  mensajeRecuperar.textContent = "";
+
+  if (!solicitudCodigoPendiente) {
+    mensajeRecuperar.textContent = "Primero solicita el envío del código a tu correo.";
+    return;
+  }
+
+  if (Date.now() > solicitudCodigoPendiente.expiraEn) {
+    solicitudCodigoPendiente = null;
+    mensajeRecuperar.textContent = "El código expiró. Solicita uno nuevo.";
+    return;
+  }
+
+  if (codigoIngresado !== solicitudCodigoPendiente.codigo) {
+    mensajeRecuperar.textContent = "El código ingresado no es correcto.";
+    return;
+  }
 
   if (nuevaClave.length < 4) {
     mensajeRecuperar.textContent = "La nueva contraseña debe tener al menos 4 caracteres.";
@@ -304,33 +374,19 @@ formRecuperarClave.addEventListener("submit", async (e) => {
   }
 
   const usuarios = obtenerUsuarios();
-  const reg = normalizarUsuario(usuarios[usuario]);
-
+  const reg = normalizarUsuario(usuarios[solicitudCodigoPendiente.usuario]);
   if (!reg) {
-    mensajeRecuperar.textContent = "No existe una cuenta con ese usuario.";
-    return;
-  }
-
-  if (!reg.respuestaHash) {
-    mensajeRecuperar.textContent = "Esta cuenta no tiene pregunta de seguridad configurada.";
-    return;
-  }
-
-  const respuestaHasheada = await hashClave(respuesta);
-  if (respuestaHasheada !== reg.respuestaHash) {
-    mensajeRecuperar.textContent = "La respuesta de seguridad no coincide.";
+    mensajeRecuperar.textContent = "No se encontró el usuario.";
     return;
   }
 
   reg.claveHash = await hashClave(nuevaClave);
-  usuarios[usuario] = reg;
+  usuarios[solicitudCodigoPendiente.usuario] = reg;
   guardarUsuarios(usuarios);
 
+  resetearPanelRecuperacion();
   panelRecuperarClave.classList.add("oculto");
-  formRecuperarClave.reset();
-  textoPreguntaSeguridad.textContent = "";
-  mensajeRecuperar.textContent = "";
-  alert("Contraseña restablecida. Ya puedes iniciar sesión con tu nueva clave.");
+  alert("Contraseña restablecida con éxito. Ya puedes iniciar sesión.");
 });
 
 btnCerrarSesion.addEventListener("click", () => {

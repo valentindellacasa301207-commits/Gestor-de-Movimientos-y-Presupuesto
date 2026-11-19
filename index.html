@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gestor de Movimientos</title>
   <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
 <body>
   <main class="contenedor">
@@ -23,16 +24,11 @@
         <input type="password" id="auth-clave" placeholder="Contraseña (mín. 4 caracteres)" required />
 
         <!-- Solo visible al registrarse -->
-        <div id="campos-seguridad-registro" class="formulario-vertical oculto">
+        <div id="campos-registro" class="formulario-vertical oculto">
           <input
-            type="text"
-            id="auth-pregunta"
-            placeholder="Pregunta de seguridad (ej. ¿Nombre de mi mascota?)"
-          />
-          <input
-            type="text"
-            id="auth-respuesta"
-            placeholder="Respuesta de seguridad"
+            type="email"
+            id="auth-correo"
+            placeholder="Correo electrónico (para recuperar clave)"
           />
         </div>
 
@@ -49,24 +45,27 @@
         </button>
       </div>
 
-      <!-- PANEL PARA RECUPERAR / RESTABLECER CONTRASEÑA -->
+      <!-- PANEL PARA RECUPERAR / RESTABLECER CONTRASEÑA CON CÓDIGO POR EMAIL -->
       <div id="panel-recuperar-clave" class="panel-recuperacion oculto">
-        <h2>Recuperar contraseña</h2>
-        <form id="form-recuperar-clave" class="formulario-vertical">
+        <h2>Recuperar contraseña por correo</h2>
+        <form id="form-enviar-codigo" class="formulario-vertical">
           <input
             type="text"
             id="rec-usuario"
             placeholder="Tu nombre de usuario"
             required
           />
-          <button type="button" id="btn-buscar-pregunta" class="btn-secundario">
-            Ver pregunta de seguridad
+          <button type="submit" id="btn-enviar-codigo" class="btn-secundario">
+            Enviar código al correo
           </button>
-          <p id="texto-pregunta-seguridad" class="texto-ayuda"></p>
+        </form>
+
+        <form id="form-restablecer-codigo" class="formulario-vertical oculto">
           <input
             type="text"
-            id="rec-respuesta"
-            placeholder="Tu respuesta de seguridad"
+            id="rec-codigo"
+            placeholder="Código de 6 dígitos recibido"
+            maxlength="6"
             required
           />
           <input
@@ -77,6 +76,8 @@
           />
           <button type="submit">Restablecer contraseña</button>
         </form>
+
+        <p id="texto-estado-recuperar" class="texto-ayuda"></p>
         <p id="mensaje-recuperar" class="mensaje-error"></p>
         <button type="button" id="btn-cancelar-recuperar" class="btn-link">
           Volver a iniciar sesión
