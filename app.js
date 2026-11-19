@@ -19,6 +19,17 @@ const mensajeAuth = document.getElementById("mensaje-auth");
 const spanUsuarioActual = document.getElementById("usuario-actual");
 const btnCerrarSesion = document.getElementById("btn-cerrar-sesion");
 
+const camposSeguridadRegistro = document.getElementById("campos-seguridad-registro");
+const inputPregunta = document.getElementById("auth-pregunta");
+const inputRespuesta = document.getElementById("auth-respuesta");
+const btnOlvideClave = document.getElementById("btn-olvide-clave");
+const panelRecuperarClave = document.getElementById("panel-recuperar-clave");
+const formRecuperarClave = document.getElementById("form-recuperar-clave");
+const btnBuscarPregunta = document.getElementById("btn-buscar-pregunta");
+const textoPreguntaSeguridad = document.getElementById("texto-pregunta-seguridad");
+const mensajeRecuperar = document.getElementById("mensaje-recuperar");
+const btnCancelarRecuperar = document.getElementById("btn-cancelar-recuperar");
+
 const btnCambiarClave = document.getElementById("btn-cambiar-clave");
 const panelCambiarClave = document.getElementById("panel-cambiar-clave");
 const formCambiarClave = document.getElementById("form-cambiar-clave");
@@ -103,6 +114,14 @@ function guardarUsuarios(usuarios) {
   localStorage.setItem(CLAVE_USUARIOS, JSON.stringify(usuarios));
 }
 
+function normalizarUsuario(registro) {
+  if (!registro) return null;
+  if (typeof registro === "string") {
+    return { claveHash: registro, pregunta: "", respuestaHash: "" };
+  }
+  return registro;
+}
+
 function claveMovimientosUsuario() {
   return `movimientos_${usuarioActivo}`;
 }
@@ -169,12 +188,25 @@ btnCambiarModo.addEventListener("click", () => {
   btnCambiarModo.textContent = modoRegistro
     ? "¿Ya tienes cuenta? Inicia sesión"
     : "¿No tienes cuenta? Regístrate";
+
+  if (modoRegistro) {
+    camposSeguridadRegistro.classList.remove("oculto");
+    panelRecuperarClave.classList.add("oculto");
+    inputPregunta.required = true;
+    inputRespuesta.required = true;
+  } else {
+    camposSeguridadRegistro.classList.add("oculto");
+    inputPregunta.required = false;
+    inputRespuesta.required = false;
+  }
 });
 
 formAuth.addEventListener("submit", async (e) => {
   e.preventDefault();
   const usuario = document.getElementById("auth-usuario").value.trim().toLowerCase();
   const clave = document.getElementById("auth-clave").value;
+  const pregunta = inputPregunta.value.trim();
+  const respuesta = inputRespuesta.value.trim().toLowerCase();
 
   if (!/^[a-z0-9._-]{3,20}$/.test(usuario)) {
     mensajeAuth.textContent = "El usuario debe tener entre 3 y 20 caracteres sin espacios.";
@@ -186,6 +218,11 @@ formAuth.addEventListener("submit", async (e) => {
     return;
   }
 
+  if (modoRegistro && (!pregunta || !respuesta)) {
+    mensajeAuth.textContent = "Completa la pregunta y respuesta de seguridad.";
+    return;
+  }
+
   const usuarios = obtenerUsuarios();
   const claveHasheada = await hashClave(clave);
 
@@ -194,10 +231,15 @@ formAuth.addEventListener("submit", async (e) => {
       mensajeAuth.textContent = "Ese nombre de usuario ya existe.";
       return;
     }
-    usuarios[usuario] = claveHasheada;
+    usuarios[usuario] = {
+      claveHash: claveHasheada,
+      pregunta,
+      respuestaHash: await hashClave(respuesta)
+    };
     guardarUsuarios(usuarios);
   } else {
-    if (!usuarios[usuario] || usuarios[usuario] !== claveHasheada) {
+    const actual = normalizarUsuario(usuarios[usuario]);
+    if (!actual || actual.claveHash !== claveHasheada) {
       mensajeAuth.textContent = "Usuario o contraseña incorrectos.";
       return;
     }
@@ -208,6 +250,87 @@ formAuth.addEventListener("submit", async (e) => {
   formAuth.reset();
   mensajeAuth.textContent = "";
   actualizarVistaSesion();
+});
+
+btnOlvideClave.addEventListener("click", () => {
+  mensajeAuth.textContent = "";
+  mensajeRecuperar.textContent = "";
+  textoPreguntaSeguridad.textContent = "";
+  formRecuperarClave.reset();
+  panelRecuperarClave.classList.toggle("oculto");
+});
+
+btnCancelarRecuperar.addEventListener("click", () => {
+  panelRecuperarClave.classList.add("oculto");
+  mensajeRecuperar.textContent = "";
+  textoPreguntaSeguridad.textContent = "";
+});
+
+btnBuscarPregunta.addEventListener("click", () => {
+  const usuario = document.getElementById("rec-usuario").value.trim().toLowerCase();
+  mensajeRecuperar.textContent = "";
+  textoPreguntaSeguridad.textContent = "";
+
+  if (!usuario) {
+    mensajeRecuperar.textContent = "Escribe primero tu nombre de usuario.";
+    return;
+  }
+
+  const usuarios = obtenerUsuarios();
+  const reg = normalizarUsuario(usuarios[usuario]);
+
+  if (!reg) {
+    mensajeRecuperar.textContent = "No existe una cuenta con ese usuario.";
+    return;
+  }
+
+  if (!reg.pregunta || !reg.respuestaHash) {
+    mensajeRecuperar.textContent = "Esta cuenta no tiene pregunta de seguridad configurada.";
+    return;
+  }
+
+  textoPreguntaSeguridad.textContent = `Pregunta: ${reg.pregunta}`;
+});
+
+formRecuperarClave.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const usuario = document.getElementById("rec-usuario").value.trim().toLowerCase();
+  const respuesta = document.getElementById("rec-respuesta").value.trim().toLowerCase();
+  const nuevaClave = document.getElementById("rec-nueva-clave").value;
+
+  if (nuevaClave.length < 4) {
+    mensajeRecuperar.textContent = "La nueva contraseña debe tener al menos 4 caracteres.";
+    return;
+  }
+
+  const usuarios = obtenerUsuarios();
+  const reg = normalizarUsuario(usuarios[usuario]);
+
+  if (!reg) {
+    mensajeRecuperar.textContent = "No existe una cuenta con ese usuario.";
+    return;
+  }
+
+  if (!reg.respuestaHash) {
+    mensajeRecuperar.textContent = "Esta cuenta no tiene pregunta de seguridad configurada.";
+    return;
+  }
+
+  const respuestaHasheada = await hashClave(respuesta);
+  if (respuestaHasheada !== reg.respuestaHash) {
+    mensajeRecuperar.textContent = "La respuesta de seguridad no coincide.";
+    return;
+  }
+
+  reg.claveHash = await hashClave(nuevaClave);
+  usuarios[usuario] = reg;
+  guardarUsuarios(usuarios);
+
+  panelRecuperarClave.classList.add("oculto");
+  formRecuperarClave.reset();
+  textoPreguntaSeguridad.textContent = "";
+  mensajeRecuperar.textContent = "";
+  alert("Contraseña restablecida. Ya puedes iniciar sesión con tu nueva clave.");
 });
 
 btnCerrarSesion.addEventListener("click", () => {
@@ -238,14 +361,16 @@ formCambiarClave.addEventListener("submit", async (e) => {
   }
 
   const usuarios = obtenerUsuarios();
+  const reg = normalizarUsuario(usuarios[usuarioActivo]);
   const hashActual = await hashClave(actual);
 
-  if (usuarios[usuarioActivo] !== hashActual) {
+  if (!reg || reg.claveHash !== hashActual) {
     mensajeClave.textContent = "La contraseña actual es incorrecta.";
     return;
   }
 
-  usuarios[usuarioActivo] = await hashClave(nueva);
+  reg.claveHash = await hashClave(nueva);
+  usuarios[usuarioActivo] = reg;
   guardarUsuarios(usuarios);
   panelCambiarClave.classList.add("oculto");
   formCambiarClave.reset();
@@ -299,7 +424,7 @@ function formatearMonto(valor) {
 
 function renderizarPresupuestoYComparativa() {
   const hoyISO = fechaHoyISO();
-  const mesActualPrefix = hoyISO.slice(0, 7); // YYYY-MM
+  const mesActualPrefix = hoyISO.slice(0, 7);
   const [anioHoy, mesHoy] = hoyISO.split("-").map(Number);
   const anteriorMes = mesHoy === 1 ? 12 : mesHoy - 1;
   const anteriorAnio = mesHoy === 1 ? anioHoy - 1 : anioHoy;

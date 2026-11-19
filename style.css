@@ -51,6 +51,33 @@ body {
   gap: 10px;
 }
 
+.acciones-login {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+button.btn-link {
+  background: transparent;
+  color: var(--acento);
+  padding: 6px;
+  font-size: 0.9rem;
+  text-decoration: underline;
+}
+
+.panel-recuperacion {
+  margin-top: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--borde);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.panel-recuperacion h2 {
+  font-size: 1.05rem;
+}
+
 .mensaje-error {
   color: var(--gasto);
   font-size: 0.9rem;

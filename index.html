@@ -8,7 +8,7 @@
 </head>
 <body>
   <main class="contenedor">
-    <!-- VISTA DE LOGIN / REGISTRO -->
+    <!-- VISTA DE LOGIN / REGISTRO / RECUPERACIÓN -->
     <section id="vista-login" class="caja-login">
       <h1 id="titulo-auth">Iniciar Sesión</h1>
       <form id="form-auth" class="formulario-vertical">
@@ -21,12 +21,67 @@
           required
         />
         <input type="password" id="auth-clave" placeholder="Contraseña (mín. 4 caracteres)" required />
+
+        <!-- Solo visible al registrarse -->
+        <div id="campos-seguridad-registro" class="formulario-vertical oculto">
+          <input
+            type="text"
+            id="auth-pregunta"
+            placeholder="Pregunta de seguridad (ej. ¿Nombre de mi mascota?)"
+          />
+          <input
+            type="text"
+            id="auth-respuesta"
+            placeholder="Respuesta de seguridad"
+          />
+        </div>
+
         <button type="submit" id="btn-auth-submit">Entrar</button>
       </form>
       <p id="mensaje-auth" class="mensaje-error"></p>
-      <button type="button" id="btn-cambiar-modo" class="btn-secundario">
-        ¿No tienes cuenta? Regístrate
-      </button>
+
+      <div class="acciones-login">
+        <button type="button" id="btn-cambiar-modo" class="btn-secundario">
+          ¿No tienes cuenta? Regístrate
+        </button>
+        <button type="button" id="btn-olvide-clave" class="btn-link">
+          ¿Olvidaste tu contraseña?
+        </button>
+      </div>
+
+      <!-- PANEL PARA RECUPERAR / RESTABLECER CONTRASEÑA -->
+      <div id="panel-recuperar-clave" class="panel-recuperacion oculto">
+        <h2>Recuperar contraseña</h2>
+        <form id="form-recuperar-clave" class="formulario-vertical">
+          <input
+            type="text"
+            id="rec-usuario"
+            placeholder="Tu nombre de usuario"
+            required
+          />
+          <button type="button" id="btn-buscar-pregunta" class="btn-secundario">
+            Ver pregunta de seguridad
+          </button>
+          <p id="texto-pregunta-seguridad" class="texto-ayuda"></p>
+          <input
+            type="text"
+            id="rec-respuesta"
+            placeholder="Tu respuesta de seguridad"
+            required
+          />
+          <input
+            type="password"
+            id="rec-nueva-clave"
+            placeholder="Nueva contraseña (mín. 4 caracteres)"
+            required
+          />
+          <button type="submit">Restablecer contraseña</button>
+        </form>
+        <p id="mensaje-recuperar" class="mensaje-error"></p>
+        <button type="button" id="btn-cancelar-recuperar" class="btn-link">
+          Volver a iniciar sesión
+        </button>
+      </div>
     </section>
 
     <!-- VISTA PRINCIPAL DE LA APP -->
@@ -41,7 +96,7 @@
         </div>
       </header>
 
-      <!-- MODAL SENCILLO PARA CAMBIAR CONTRASEÑA -->
+      <!-- PANEL PARA CAMBIAR CONTRASEÑA -->
       <section id="panel-cambiar-clave" class="panel-caja oculto">
         <h2>Cambiar contraseña</h2>
         <form id="form-cambiar-clave" class="formulario">
